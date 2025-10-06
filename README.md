@@ -1,45 +1,100 @@
 
-## Structer 
+
+## ✨ Features
+
+* **Open registration** (no allow-list)
+* **Email verification required** before sign-in
+* **Re-send verification on login** if user isn’t verified
+* **Firestore user document** on sign-up (`users` collection)
+
+---
+
+
+
+* **Frontend:** React (Vite), JSX, Tailwind CSS
+* **Backend (BaaS):** Firebase Authentication + Cloud Firestore (via JS SDK)
+
+
+---
+
+## 📁 Project Structure
+
+```
 src/
-├─ assets/                           - [UI/UX]
-├─ Components/                       - [UI/UX]
-├─ pages/                            - صفحات التطبيق 
-│   ├─ Login.jsx                     
-│   └─ Register.jsx
-├─ Services/                         -- Firebase [Backend]  * لا تعدلون  على فنكشن الايميل  * 
+├─ Components/                  # UI building blocks (optional for the team)
+│   ├─ InputField.jsx
+│   ├─ PasswordField.jsx
+│   └─ MessageBox.jsx
+├─ Services/                    # Business logic & Firebase calls (DO NOT call Firebase from pages)
 │   └─ Authentication_email.service.js
-├─ App.jsx                           ← [Routing]
-├─ firebase.js                       ← تهيئة Firebase للمشروع [Backend - ثابت]  * لا تعدلون شي فيه 
-├─ main.jsx                          ← [Routing - ثابت]
-├─ App.css / index.css               ←  [UI/UX]
+├─ pages/                       # Screens that wire UI & logic
+│   ├─ Login.jsx                # TODO: UI section (visual form)  see comments inside
+│   └─ Register.jsx             # TODO: UI section (visual form)  see comments inside
+├─ App.jsx                      # Simple routing (choose which page to render)
+├─ firebase.js                  # Firebase initialization (stable) / dont change anything on it 
+├─ main.jsx                     # App bootstrap (stable) 
+└─ index.css / App.css          # Global styles
+```
+
+---
+
+## Auth Flow (How it works)
+
+1. **Register** (any email) → create user → **send verification email** → **sign out**.
+2. User clicks verification link in email.
+3. **Login**:
+   * If **not verified**: re-send verification and **block login** with a clear message.
+   * If **verified**: login succeeds.
+
+All Firebase interactions (create, login, verification, Firestore writes) are centralized in
+`src/Services/Authentication_email.service.js`.
 
 
-## workspace ##
+**Firebase Console:**
 
-## UI  X UX 
-ملف الكومبوننت انا قسمته لثلاث اشياء 
-login.jsx وهو مرتبط ب 
-ممكن انكم تحذفونه وتسوون ملف واحد شامل كل شي اهم شي الهيكل نفسه 
-
-Register.jsx كامل ناقصه بس الواجهة تكون مضبوطه كشكل بتحتاجون تعدلون اماكن و ترفعون وتنزلون بس 
-
-Where the UI/UX Team Should Write Code:
-* **`Register.jsx`**: Inside the JSX area marked with
-  // TODO: UI Section (Register Form)
-
-* **`Login.jsx`**: Inside the JSX area marked with
-  // TODO: UI Section (Login Form)
-
-فيه صفحات زياده بس هذا الي انا خلصته و كيف تكملون الشغل  عليه 
-
-**اي شي قبله لا تغيرون فيه ابدا الا لو بيأثر على شغلكم و احفظوا الملف قبل تعدلونه**
-**components لو تحتاجون مكونات منفصله زي الازرار لا تحطونها بالبيج نفسها حطوا با**
-**must not call Firebase directly from these components**
-**All Firebase interactions must go through the service layer: src/Services/**
+* Authentication → **Sign-in method** → enable **Email/Password**
+* Authentication → Settings → **Authorized domains**: add your domain (e.g., `localhost:5173`, production domain)
+* Firestore → create database (Native mode) → collection `users`
 
 
 
-## Back-end
-─ main.jsx                          ← [Routing - ثابت]
-├─ Services/                         -- Firebase [Backend] 
-│   └─ Authentication_email.service.js 
+### UI/UX
+* Implement visual forms **inside the TODO blocks** in:
+
+  * `src/pages/Register.jsx` — “UI/UX TEAM AREA (Register Page)”
+  * `src/pages/Login.jsx` — “UI/UX TEAM AREA (Login Page)”
+* Use local state & handlers already provided (`setEmail`, `handleSubmit`, etc).
+* **Do not** import Firebase directly in pages/components — keep it inside `Services`.
+
+### Backend
+
+* Own `src/Services/Authentication_email.service.js`:
+
+  * `registerUser(...)` — checks duplicate email, creates user, sends verification, writes Firestore, signs out.
+  * `loginUser(...)` — blocks non-verified users and re-sends verification.
+* Extend Firestore shape if needed (roles, profile fields).
+* Add Firestore **Security Rules** later (see “Security Next” below).
+
+### Routing
+
+* `src/App.jsx` currently mounts a single page (switch between Register/Login).
+* When ready, introduce `react-router-dom` and add routes like:
+
+  * `/register` `/login` `/dashboard`
+* Guard `/dashboard` by `auth.currentUser` + verified email.
+
+
+
+Branches:
+* `main` — stable, reviewed
+* `dev` — integration branch
+* `ui` — UI/UX work
+* `backend` — service logic & rules
+
+Flow:
+1. Create feature branch from `dev` → `feat/ui-register-form`
+2. Commit with conventional messages:
+   * `feat(ui): register form layout`
+   * `fix(auth): resend verification message`
+
+
