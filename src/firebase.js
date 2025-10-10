@@ -18,3 +18,9 @@ const app = initializeApp(firebaseConfig);
 // Export services to use them anywhere in the app
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// i forgot 
+export const actionCodeSettings = {
+  url: window.location.origin + "/login",
+  handleCodeInApp: true,
+};

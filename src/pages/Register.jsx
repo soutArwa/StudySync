@@ -1,10 +1,9 @@
-import { auth } from "../firebase";
+ import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
-import { useState } from "react";
-import InputField from "../Components/InputField";
-import PasswordField from "../Components/PasswordField";
-import MessageBox from "../Components/MessageBox";
+import { useState, useMemo } from "react";
 import { registerUser } from "../Services/Authentication_email.service";
+import { Link } from "react-router-dom";
+import { FaEye, FaEyeSlash } from "react-icons/fa6";
 
 export default function Register() {
   const [first, setFirst] = useState("");
@@ -12,15 +11,23 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [confirm, setConfirm] = useState("");
-
   const [errors, setErrors] = useState({});
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // تحقق حي لتطابق الباسوورد
+  const confirmMismatch = useMemo(
+    () => confirm.length > 0 && pass !== confirm,
+    [pass, confirm]
+  );
 
   const validate = () => {
     const e = {};
     if (!first.trim()) e.first = "First name is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = "Enter a valid email address.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      e.email = "Enter a valid email address.";
     if (!pass) e.pass = "Password is required.";
     if (!confirm) e.confirm = "Please confirm your password.";
     else if (pass !== confirm) e.confirm = "Passwords do not match.";
@@ -32,12 +39,11 @@ export default function Register() {
     ev.preventDefault();
     setMsg("");
     if (!validate()) return;
-
     setLoading(true);
     try {
       const fullName = `${first.trim()}${last.trim() ? " " + last.trim() : ""}`;
       const res = await registerUser(fullName, email.trim(), pass);
-      setMsg(res?.message || "We sent you a verification email. Please verify your email before signing in.");
+      setMsg(res?.message || "Verification email sent.");
       setFirst(""); setLast(""); setEmail(""); setPass(""); setConfirm("");
       setErrors({});
     } catch (err) {
@@ -47,7 +53,6 @@ export default function Register() {
     }
   }
 
-  // زر إعادة إرسال التفعيل (يعمل فقط إذا المستخدم ما زال Signed-in بعد التسجيل؛ غالباً سيكون Signed-out اعتماداً على الخدمة)
   async function resendVerification() {
     try {
       if (!auth.currentUser) {
@@ -64,121 +69,205 @@ export default function Register() {
     }
   }
 
-  const btnDisabled = loading || !first.trim() || !email.trim() || !pass || !confirm || pass !== confirm;
- 
-  // ======== UI/UX TEAM AREA (Register Page) ======== 
+  const btnDisabled =
+    loading ||
+    !first.trim() ||
+    !email.trim() ||
+    !pass ||
+    !confirm ||
+    confirmMismatch;
+
+  /* Styles (نفس اللوق إن) */
+  const page = {
+    minHeight: "100vh",
+    background: "linear-gradient(135deg,#0f1a2b,#121a2b)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    fontFamily: "Poppins,system-ui",
+    padding: 24,
+  };
+  const box = {
+    background: "#fff",
+    padding: "40px 36px",
+    borderRadius: 16,
+    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
+    width: "100%",
+    maxWidth: 480,
+  };
+  const inputWrap = { marginBottom: 16, position: "relative" };
+  const input = (errored = false) => ({
+    width: "100%",
+    padding: "12px 44px 12px 14px",
+    borderRadius: 10,
+    border: `1.5px solid ${errored ? "#ef4444" : "#cbd5e1"}`,
+    fontSize: 14,
+    outline: "none",
+  });
+  const eyeBtn = {
+    position: "absolute",
+    right: 10,
+    top: "50%",
+    transform: "translateY(-50%)",
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    border: "1px solid #e5e7eb",
+    cursor: "pointer",
+    color: "#6b7280",
+  };
+  const btn = {
+    width: "100%",
+    padding: "12px",
+    borderRadius: 10,
+    border: "none",
+    background: "#137dc5",
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 600,
+    cursor: "pointer",
+  };
+  const help = { color: "#ef4444", fontSize: 12, marginTop: 6 };
 
   return (
-    <div className="h-full bg-gray-400 dark:bg-gray-900 min-h-screen">
-      <div className="mx-auto">
-        <div className="flex justify-center px-6 py-12">
-          <div className="w-full xl:w-3/4 lg:w-11/12 flex">
-            <div
-              className="w-full h-auto bg-gray-400 dark:bg-gray-800 hidden lg:block lg:w-5/12 bg-cover rounded-l-lg"
-              style={{ backgroundImage: "url('https://source.unsplash.com/Mv9hjnEUHR4/600x800')" }}
+    <div style={page}>
+      <div style={box}>
+        <h2 style={{ color: "#137dc5", marginBottom: 8 }}>Create an Account</h2>
+        <p style={{ color: "#6b7280", marginBottom: 20 }}>Please fill in your details</p>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div style={inputWrap}>
+            <input
+              type="text"
+              placeholder="First Name"
+              value={first}
+              onChange={(e) => setFirst(e.target.value)}
+              required
+              style={input(!!errors.first)}
             />
-            <div className="w-full lg:w-7/12 bg-white dark:bg-gray-700 p-5 rounded-lg lg:rounded-l-none">
-              <h3 className="py-4 text-2xl text-center text-gray-800 dark:text-white">Create an Account</h3>
-
-              <form className="px-8 pt-6 pb-8 mb-4 bg-white dark:bg-gray-800 rounded" onSubmit={handleSubmit}>
-                <div className="mb-4 md:flex md:justify-between">
-                  <div className="mb-4 md:mr-2 md:mb-0">
-                    <InputField
-                      label="First Name"
-                      value={first}
-                      onChange={(e) => setFirst(e.target.value)}
-                      placeholder="First Name"
-                      required
-                      error={errors.first}
-                      autoComplete="given-name"
-                    />
-                  </div>
-                  <div className="md:ml-2">
-                    <InputField
-                      label="Last Name"
-                      value={last}
-                      onChange={(e) => setLast(e.target.value)}
-                      placeholder="Last Name (optional)"
-                      error={errors.last}
-                      autoComplete="family-name"
-                    />
-                  </div>
-                </div>
-
-                <InputField
-                  label="Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@example.com"
-                  required
-                  error={errors.email}
-                  autoComplete="username"
-                />
-
-                <div className="mb-4 md:flex md:justify-between">
-                  <div className="mb-4 md:mr-2 md:mb-0">
-                    <PasswordField
-                      label="Password"
-                      value={pass}
-                      onChange={(e) => setPass(e.target.value)}
-                      placeholder="********"
-                      error={errors.pass}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <div className="md:ml-2">
-                    <PasswordField
-                      label="Confirm Password"
-                      value={confirm}
-                      onChange={(e) => setConfirm(e.target.value)}
-                      placeholder="********"
-                      error={errors.confirm}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                </div>
-
-                <MessageBox
-                  message={msg}
-                  kind={
-                    msg.toLowerCase().includes("failed") || msg.toLowerCase().includes("error") ? "error" : "success"
-                  }
-                />
-
-                {/* زر إعادة إرسال التفعيل يظهر فقط عندما تحتوي الرسالة على كلمة verification */}
-                {msg && msg.toLowerCase().includes("verification") && (
-                  <button
-                    type="button"
-                    onClick={resendVerification}
-                    className="mt-2 text-sm underline text-blue-600"
-                  >
-                    Resend verification email
-                  </button>
-                )}
-
-                <div className="mb-6 text-center">
-                  <button
-                    type="submit"
-                    disabled={btnDisabled}
-                    className={`w-full px-4 py-2 font-bold text-white rounded-full focus:outline-none focus:shadow-outline ${
-                      btnDisabled ? "bg-gray-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-800"
-                    }`}
-                  >
-                    {loading ? "Creating..." : "Register Account"}
-                  </button>
-                </div>
-
-                <hr className="mb-6 border-t" />
-                <div className="text-center">
-                  <a className="inline-block text-sm text-blue-500 dark:text-blue-500 align-baseline hover:text-blue-800" href="#">
-                    Already have an account? Login
-                  </a>
-                </div>
-              </form>
-            </div>
+            {errors.first && <div style={help}>{errors.first}</div>}
           </div>
-        </div>
+
+          <div style={inputWrap}>
+            <input
+              type="text"
+              placeholder="Last Name (optional)"
+              value={last}
+              onChange={(e) => setLast(e.target.value)}
+              style={input(false)}
+            />
+          </div>
+
+          <div style={inputWrap}>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={input(!!errors.email)}
+            />
+            {errors.email && <div style={help}>{errors.email}</div>}
+          </div>
+
+          {/* Password */}
+          <div style={inputWrap}>
+            <input
+              type={showPass ? "text" : "password"}
+              placeholder="Password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              required
+              style={input(!!errors.pass)}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              style={eyeBtn}
+              aria-label={showPass ? "Hide password" : "Show password"}
+              title={showPass ? "Hide password" : "Show password"}
+            >
+              {showPass ? <FaEyeSlash /> : <FaEye />}
+            </button>
+            {errors.pass && <div style={help}>{errors.pass}</div>}
+          </div>
+
+          {/* Confirm Password (تحقق حي) */}
+          <div style={inputWrap}>
+            <input
+              type={showConfirm ? "text" : "password"}
+              placeholder="Confirm Password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+              style={input(confirmMismatch || !!errors.confirm)}
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirm(!showConfirm)}
+              style={eyeBtn}
+              aria-label={showConfirm ? "Hide password" : "Show password"}
+              title={showConfirm ? "Hide password" : "Show password"}
+            >
+              {showConfirm ? <FaEyeSlash /> : <FaEye />}
+            </button>
+            {(confirmMismatch || errors.confirm) && (
+              <div style={help}>{errors.confirm || "Passwords do not match."}</div>
+            )}
+          </div>
+
+          {msg && (
+            <p style={{ textAlign: "center", color: "crimson", fontSize: 13 }}>
+              {msg}{" "}
+              {msg.toLowerCase().includes("verification") && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      if (!auth.currentUser) {
+                        setMsg("Please sign in first, then try again.");
+                        return;
+                      }
+                      await sendEmailVerification(auth.currentUser, {
+                        url: "http://localhost:5173/",
+                        handleCodeInApp: false,
+                      });
+                      setMsg("Verification email sent again. Check your inbox/spam.");
+                    } catch (e) {
+                      setMsg(e?.message || "Failed to resend verification email.");
+                    }
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#137dc5",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  Resend verification email
+                </button>
+              )}
+            </p>
+          )}
+
+          <button type="submit" disabled={btnDisabled} style={btn}>
+            {loading ? "Creating..." : "Register Account"}
+          </button>
+
+          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13 }}>
+            Already have an account?{" "}
+            <Link to="/login" style={{ color: "#137dc5", textDecoration: "none" }}>
+              Login
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );
