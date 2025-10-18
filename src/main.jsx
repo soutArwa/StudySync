@@ -1,7 +1,7 @@
-  import React from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import "./Components/custom-section.css"; // <-- خليه هو الوحيد
+import "./components/custom-section.css"; // ✅ المسار الصحيح، وحيد
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

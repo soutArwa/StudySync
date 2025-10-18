@@ -1,9 +1,11 @@
- import { auth } from "../firebase";
+ 
+import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { registerUser } from "../Services/Authentication_email.service";
 import { Link } from "react-router-dom";
-import { FaEye, FaEyeSlash } from "react-icons/fa6";
+import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
+import Global from "../components/global";
 
 export default function Register() {
   const [first, setFirst] = useState("");
@@ -14,10 +16,17 @@ export default function Register() {
   const [errors, setErrors] = useState({});
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
 
-  // تحقق حي لتطابق الباسوورد
+  const passRef = useRef(null);
+  const confirmRef = useRef(null);
+
+  // === simple 3-level password analysis (Weak/Fair/Good) ===
+  const analysis = useMemo(() => analyzePasswordSimple(pass), [pass]);
+
   const confirmMismatch = useMemo(
     () => confirm.length > 0 && pass !== confirm,
     [pass, confirm]
@@ -60,7 +69,7 @@ export default function Register() {
         return;
       }
       await sendEmailVerification(auth.currentUser, {
-        url: "http://localhost:5173/",
+        url: window.location.origin + "/",
         handleCodeInApp: false,
       });
       setMsg("Verification email sent again. Check your inbox/spam.");
@@ -70,205 +79,311 @@ export default function Register() {
   }
 
   const btnDisabled =
-    loading ||
-    !first.trim() ||
-    !email.trim() ||
-    !pass ||
-    !confirm ||
-    confirmMismatch;
+    loading || !first.trim() || !email.trim() || !pass || !confirm || confirmMismatch;
 
-  /* Styles (نفس اللوق إن) */
-  const page = {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg,#0f1a2b,#121a2b)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontFamily: "Poppins,system-ui",
-    padding: 24,
-  };
-  const box = {
-    background: "#fff",
-    padding: "40px 36px",
-    borderRadius: 16,
-    boxShadow: "0 8px 30px rgba(0,0,0,0.25)",
-    width: "100%",
-    maxWidth: 480,
-  };
-  const inputWrap = { marginBottom: 16, position: "relative" };
-  const input = (errored = false) => ({
-    width: "100%",
-    padding: "12px 44px 12px 14px",
-    borderRadius: 10,
-    border: `1.5px solid ${errored ? "#ef4444" : "#cbd5e1"}`,
+  // ===== Palette-based styles =====
+  const FIELD_H = 48;
+  const baseField = {
+    height: FIELD_H,
+    borderRadius: 12,
+    border: "1px solid var(--border-color, rgba(255,255,255,0.08))",
+    background: "var(--glass, rgba(255,255,255,0.06))",
+    color: "var(--text-primary, #e6eaf3)",
     fontSize: 14,
+    width: "100%",
+    boxSizing: "border-box",
+  };
+  const textInputStyle = {
+    ...baseField,
+    padding: "0 14px",
     outline: "none",
-  });
-  const eyeBtn = {
-    position: "absolute",
-    right: 10,
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: 28,
-    height: 28,
-    borderRadius: 6,
+  };
+
+  // fixed: flush eye icon — no inner rounding
+  const pwGroupStyle = (customBorder) => ({
+    ...baseField,
+    ...(customBorder ? { border: customBorder } : {}),
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: 12,
+    paddingRight: 0,
+  });
+  const pwInputStyle = {
+    flex: 1,
+    height: "100%",
     background: "transparent",
-    border: "1px solid #e5e7eb",
-    cursor: "pointer",
-    color: "#6b7280",
-  };
-  const btn = {
-    width: "100%",
-    padding: "12px",
-    borderRadius: 10,
     border: "none",
-    background: "#137dc5",
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: 600,
-    cursor: "pointer",
+    outline: "none",
+    color: "var(--text-primary, #e6eaf3)",
+    padding: "0 14px",
+    fontSize: 14,
+    borderRadius: 0,
   };
-  const help = { color: "#ef4444", fontSize: 12, marginTop: 6 };
+  const eyeBtnStyle = {
+    width: 44,
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+    border: "none",
+    borderLeft: "1px solid var(--border-color, rgba(255,255,255,0.08))",
+    background: "transparent",
+    cursor: "pointer",
+    color: "var(--text-muted, #93a0b4)",
+    borderRadius: 0,
+  };
+
+  // Confirm border color
+  const confirmBorder =
+    confirm.length === 0
+      ? "1px solid var(--border-color, rgba(255,255,255,0.08))"
+      : confirmMismatch
+      ? "1px solid var(--danger, #ff6b6b)"
+      : "1px solid var(--success, #34d399)";
+
+  const errorText = (t) => (
+    <span style={{ color: "var(--danger, #ff6b6b)", fontSize: 12, marginTop: 6, display: "block" }}>
+      {t}
+    </span>
+  );
+
+  const primaryBtnStyle = {
+    height: 46,
+    borderRadius: 12,
+    border: "none",
+    cursor: btnDisabled ? "not-allowed" : "pointer",
+    background:
+      "linear-gradient(135deg, var(--brand-violet, #7c5cff) 0%, var(--brand-violet-light, #9d7fff) 100%)",
+    color: "var(--white, #ffffff)",
+    fontWeight: 600,
+    width: "100%",
+    boxShadow:
+      "var(--button-shadow, 0 4px 12px rgba(124, 92, 255, 0.4), 0 2px 4px rgba(0,0,0,0.2))",
+  };
+
+  // CapsLock detection
+  const handleKeyDown = (e) => setCapsLockOn(e.getModifierState && e.getModifierState("CapsLock"));
+  const handleKeyUp = (e) => setCapsLockOn(e.getModifierState && e.getModifierState("CapsLock"));
+
+  // Strength colors (Weak / Fair / Good)
+  const strengthColor =
+    analysis.score === 1
+      ? "var(--danger, #ff6b6b)"
+      : analysis.score === 2
+      ? "var(--warning, #f59e0b)"
+      : "var(--success, #34d399)";
 
   return (
-    <div style={page}>
-      <div style={box}>
-        <h2 style={{ color: "#137dc5", marginBottom: 8 }}>Create an Account</h2>
-        <p style={{ color: "#6b7280", marginBottom: 20 }}>Please fill in your details</p>
+    <Global>
+      <div style={{ color: "var(--text-primary, #e6eaf3)" }}>
+        <h2>Create an Account</h2>
+        <p style={{ color: "var(--text-muted, #93a0b4)" }}>Please fill in your details</p>
+      </div>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div style={inputWrap}>
-            <input
-              type="text"
-              placeholder="First Name"
-              value={first}
-              onChange={(e) => setFirst(e.target.value)}
-              required
-              style={input(!!errors.first)}
-            />
-            {errors.first && <div style={help}>{errors.first}</div>}
-          </div>
+      <form onSubmit={handleSubmit} noValidate>
+        <div style={{ marginBottom: 14 }}>
+          <input
+            type="text"
+            placeholder="First Name"
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
+            required
+            style={textInputStyle}
+          />
+          {errors.first && errorText(errors.first)}
+        </div>
 
-          <div style={inputWrap}>
-            <input
-              type="text"
-              placeholder="Last Name (optional)"
-              value={last}
-              onChange={(e) => setLast(e.target.value)}
-              style={input(false)}
-            />
-          </div>
+        <div style={{ marginBottom: 14 }}>
+          <input
+            type="text"
+            placeholder="Last Name (optional)"
+            value={last}
+            onChange={(e) => setLast(e.target.value)}
+            style={textInputStyle}
+          />
+        </div>
 
-          <div style={inputWrap}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={input(!!errors.email)}
-            />
-            {errors.email && <div style={help}>{errors.email}</div>}
-          </div>
+        <div style={{ marginBottom: 14 }}>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={textInputStyle}
+            autoComplete="email"
+          />
+          {errors.email && errorText(errors.email)}
+        </div>
 
-          {/* Password */}
-          <div style={inputWrap}>
+        {/* Password */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={pwGroupStyle()}>
             <input
+              ref={passRef}
               type={showPass ? "text" : "password"}
               placeholder="Password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onKeyUp={handleKeyUp}
               required
-              style={input(!!errors.pass)}
+              style={pwInputStyle}
               autoComplete="new-password"
             />
             <button
               type="button"
-              onClick={() => setShowPass(!showPass)}
-              style={eyeBtn}
               aria-label={showPass ? "Hide password" : "Show password"}
+              aria-pressed={showPass}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setShowPass((v) => !v);
+                requestAnimationFrame(() => passRef.current?.focus());
+              }}
+              style={eyeBtnStyle}
               title={showPass ? "Hide password" : "Show password"}
             >
-              {showPass ? <FaEyeSlash /> : <FaEye />}
+              {showPass ? <AiOutlineEye size={20} /> : <AiOutlineEyeInvisible size={20} />}
             </button>
-            {errors.pass && <div style={help}>{errors.pass}</div>}
           </div>
 
-          {/* Confirm Password (تحقق حي) */}
-          <div style={inputWrap}>
+          {/* Caps Lock warning */}
+          {capsLockOn && (
+            <div style={{ color: "var(--warning, #f59e0b)", fontSize: 12, marginTop: 6 }}>
+              Caps Lock is on
+            </div>
+          )}
+          {errors.pass && errorText(errors.pass)}
+        </div>
+
+        {/* Strength Meter */}
+        {pass && analysis.score > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  style={{
+                    height: 6,
+                    borderRadius: 999,
+                    flex: 1,
+                    transition: "all .25s ease",
+                    background:
+                      n <= analysis.score
+                        ? strengthColor
+                        : "var(--border-color, rgba(255,255,255,0.08))",
+                    boxShadow: n <= analysis.score ? "0 0 0 1px rgba(0,0,0,0.08) inset" : "none",
+                  }}
+                />
+              ))}
+              <span style={{ fontSize: 12, color: strengthColor, marginLeft: 6 }}>
+                {analysis.label}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Confirm Password */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={pwGroupStyle(confirmBorder)}>
             <input
+              ref={confirmRef}
               type={showConfirm ? "text" : "password"}
               placeholder="Confirm Password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onKeyUp={handleKeyUp}
               required
-              style={input(confirmMismatch || !!errors.confirm)}
+              style={pwInputStyle}
               autoComplete="new-password"
             />
             <button
               type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              style={eyeBtn}
               aria-label={showConfirm ? "Hide password" : "Show password"}
+              aria-pressed={showConfirm}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setShowConfirm((v) => !v);
+                requestAnimationFrame(() => confirmRef.current?.focus());
+              }}
+              style={eyeBtnStyle}
               title={showConfirm ? "Hide password" : "Show password"}
             >
-              {showConfirm ? <FaEyeSlash /> : <FaEye />}
+              {showConfirm ? <AiOutlineEye size={20} /> : <AiOutlineEyeInvisible size={20} />}
             </button>
-            {(confirmMismatch || errors.confirm) && (
-              <div style={help}>{errors.confirm || "Passwords do not match."}</div>
-            )}
           </div>
+          {(errors.confirm || confirmMismatch) &&
+            errorText(errors.confirm || "Passwords do not match.")}
+        </div>
 
-          {msg && (
-            <p style={{ textAlign: "center", color: "crimson", fontSize: 13 }}>
-              {msg}{" "}
-              {msg.toLowerCase().includes("verification") && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      if (!auth.currentUser) {
-                        setMsg("Please sign in first, then try again.");
-                        return;
-                      }
-                      await sendEmailVerification(auth.currentUser, {
-                        url: "http://localhost:5173/",
-                        handleCodeInApp: false,
-                      });
-                      setMsg("Verification email sent again. Check your inbox/spam.");
-                    } catch (e) {
-                      setMsg(e?.message || "Failed to resend verification email.");
-                    }
-                  }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#137dc5",
-                    cursor: "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  Resend verification email
-                </button>
-              )}
-            </p>
-          )}
-
-          <button type="submit" disabled={btnDisabled} style={btn}>
-            {loading ? "Creating..." : "Register Account"}
-          </button>
-
-          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13 }}>
-            Already have an account?{" "}
-            <Link to="/login" style={{ color: "#137dc5", textDecoration: "none" }}>
-              Login
-            </Link>
+        {/* Message */}
+        {msg && (
+          <p style={{
+            textAlign: "center",
+            fontSize: 13,
+            marginBottom: 10,
+            color: "var(--text-primary, #e6eaf3)",
+            background: /sent|success/i.test(msg) ? "rgba(52, 211, 153, 0.1)" : "transparent",
+            border: /sent|success/i.test(msg) ? "1px solid var(--success, #34d399)" : "none",
+            padding: /sent|success/i.test(msg) ? "10px 12px" : 0,
+            borderRadius: /sent|success/i.test(msg) ? 10 : 0,
+          }}>
+            {msg}
+            {msg.toLowerCase().includes("verification") && (
+              <button
+                type="button"
+                onClick={resendVerification}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--brand-violet, #7c5cff)",
+                  cursor: "pointer",
+                  marginLeft: 6,
+                  textDecoration: "underline",
+                }}
+              >
+                Resend verification
+              </button>
+            )}
           </p>
-        </form>
-      </div>
-    </div>
+        )}
+
+        <button type="submit" disabled={btnDisabled} style={primaryBtnStyle}>
+          {loading ? "Creating..." : "Register Account"}
+        </button>
+
+        <p style={{
+          textAlign: "center",
+          marginTop: 16,
+          fontSize: 13,
+          color: "var(--text-muted, #93a0b4)"
+        }}>
+          Already have an account?{" "}
+          <Link to="/login" style={{ color: "var(--brand-violet, #7c5cff)" }}>
+            Login
+          </Link>
+        </p>
+      </form>
+    </Global>
   );
 }
+
+/* --------- helper for 3-step password strength --------- */
+function analyzePasswordSimple(pwd) {
+  if (!pwd) return { score: 0, label: "" };
+
+  let score = 1; // Weak
+  const hasLower = /[a-z]/.test(pwd);
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasDigit = /\d/.test(pwd);
+  const hasSymbol = /[^a-zA-Z0-9]/.test(pwd);
+  const classes = [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length;
+
+  if (pwd.length >= 8 || classes >= 2) score = 2; // Fair
+  if (pwd.length >= 12 && classes >= 3) score = 3; // Good
+
+  const label = score === 1 ? "Weak" : score === 2 ? "Fair" : "Good";
+  return { score, label };
+}
+
