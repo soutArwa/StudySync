@@ -1,0 +1,250 @@
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  font-family: Arial, sans-serif;
+  background: #f0f4f8; 
+  overflow: hidden;
+}
+
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background-color: #4a90e2; 
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.top-left button,
+.top-right button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.top-center {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.side {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 250px;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6); 
+  opacity: 0.7;
+  color: #fff;
+  padding: 80px 15px 20px 15px; 
+  border-right: 1px solid rgba(255,255,255,0.2);
+  z-index: 10;
+  backdrop-filter: blur(5px);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.avatar {
+  width: 45px;
+  height: 45px;
+  background: #4a90e2;
+  color: #fff;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  border-radius: 50%;
+}
+
+.menu button {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: none;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 15px; 
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.menu button.active,
+.menu button:hover {
+  background-color: #fff;
+  color: #4a90e2;
+  font-weight: bold;
+}
+
+.logout button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.logout button:hover {
+  background-color: #c23616;
+}
+
+.main {
+  margin-left: 250px; 
+  margin-top: 60px; 
+  padding: 20px;
+  width: calc(100% - 250px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.courses-grid,
+.tasks-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 30px;
+  width: 100%;
+  justify-items: center;
+  margin-top: 20px;
+}
+
+.course-card,
+.task-card,
+.task-form-box,
+.profile-box {
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  padding: 20px;
+  width: 100%;
+  max-width: 1000px; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.course-card:hover,
+.task-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+.course-card h3,
+.course-card p,
+.task-card h3,
+.task-card p,
+.profile-box h1,
+.profile-box p {
+  text-align: center;
+  color: #333;
+}
+
+.task-form-box input,
+.task-form-box textarea,
+.task-form-box select {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.task-form-box button {
+  padding: 10px 15px;
+  border-radius: 6px;
+  border: none;
+  background: #4a90e2;
+  color: #fff;
+  cursor: pointer;
+  width: 100%;
+}
+
+.task-form-box button:hover {
+  background: #357ABD;
+}
+
+
+.task-card.completed {
+  background-color: #13eb13;
+  border-color: #f2f3f2;
+}
+
+.task-actions {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.task-actions button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  background-color: #4a90e2;
+  color: #fff;
+  cursor: pointer;
+}
+
+.task-actions button:hover {
+  background-color: #357ABD;
+}
+
+.task-filters {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.task-filters select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+.profile-box {
+  max-width: 350px;
+  padding: 30px;
+}
+
+@media (max-width: 768px) {
+  .side {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .side.open {
+    transform: translateX(0);
+  }
+
+  .main {
+    margin-left: 0;
+    width: 100%;
+    padding: 70px 15px 20px 15px;
+  }
+}
