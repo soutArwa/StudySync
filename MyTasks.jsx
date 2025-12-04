@@ -1,113 +1,115 @@
-import React, { useState, useEffect } from "react";
-import "../Dashboard.css";
-import { useNavigate } from "react-router-dom";
-import { 
-    collection, 
-    addDoc, 
-    updateDoc, 
-    deleteDoc, 
-    doc, 
-    getDoc, // تم إضافة getDoc لجلب بيانات المستخدم
-    onSnapshot, 
-    query, 
-    orderBy 
-} from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { onAuthStateChanged } from "firebase/auth";
 
-const MEMBERS = ["Me", "Noura", "Sara", "Mousa", "Raghad"];
+import React, { useState, useEffect } from "react";
+import "../Components/Dashboard.css";
+import { useNavigate } from "react-router-dom";
+import {
+    collection,
+    addDoc,
+    updateDoc,
+    deleteDoc,
+    doc,
+    onSnapshot,
+    query,
+    where
+} from "firebase/firestore";
+import { db, auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import Sidebar from "../Components/Sidebar";
+
 const PRIORITIES = ["Low", "Medium", "High"];
 
 export default function MyTasks() {
+
     const navigate = useNavigate();
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const [nav, setNav] = useState("myTasks");
     const pageName = "My Tasks";
 
+    const [userInfo, setUserInfo] = useState({ displayName: "User", email: "" });
+    const [uid, setUid] = useState(null);
+
+    const [courses, setCourses] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
-    // حالة لتخزين بيانات المستخدم (الاسم والإيميل)
-    const [userInfo, setUserInfo] = useState({ displayName: "User", email: "" });
-    const [currentUserUid, setCurrentUserUid] = useState(null);
 
     const [form, setForm] = useState({
         title: "",
         description: "",
         dueDate: "",
         priority: "Medium",
-        assignee: "Me",
+        courseId: "",
+        courseName: "",
     });
-    const [editingTaskId, setEditingTaskId] = useState(null);
+
+    const [editingId, setEditingId] = useState(null);
 
     const [statusFilter, setStatusFilter] = useState("all");
-    const [assigneeFilter, setAssigneeFilter] = useState("all");
     const [priorityFilter, setPriorityFilter] = useState("all");
     const [sortBy, setSortBy] = useState("none");
 
+    // ==========================
+    // Load user + tasks + courses
+    // ==========================
+
     useEffect(() => {
-        const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
-            if (currentUser) {
-                setCurrentUserUid(currentUser.uid);
-                
-                // 1. جلب الاسم من Firestore لضمان ظهور الاسم الصحيح
-                try {
-                    const userDocRef = doc(db, 'users', currentUser.uid);
-                    const userSnap = await getDoc(userDocRef);
-                    
-                    if (userSnap.exists()) {
-                        setUserInfo({
-                            displayName: userSnap.data().displayName || currentUser.displayName || "User",
-                            email: currentUser.email
-                        });
-                    } else {
-                        setUserInfo({
-                            displayName: currentUser.displayName || "User",
-                            email: currentUser.email
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error fetching user profile:", error);
-                    setUserInfo({
-                        displayName: currentUser.displayName || "User",
-                        email: currentUser.email
-                    });
-                }
+        const unsub = onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                navigate("/login");
+                return;
+            }
 
-                // 2. جلب المهام
-                const q = query(
-                    collection(db, 'users', currentUser.uid, 'personalTasks'),
-                    orderBy('createdAt', 'desc')
-                );
+            setUid(user.uid);
 
-                const unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
-                    const tasksData = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
-                    }));
-                    setTasks(tasksData);
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Error fetching tasks:", error);
-                    setLoading(false);
+            setUserInfo({
+                displayName: user.displayName || "User",
+                email: user.email,
+            });
+
+            const cq = query(
+                collection(db, "courses"),
+                where("members", "array-contains", user.uid)
+            );
+
+            onSnapshot(cq, (snap) => {
+                const list = snap.docs.map(d => ({
+                    id: d.id,
+                    ...d.data()
+                }));
+                setCourses(list);
+            });
+
+            const tq = query(
+                collection(db, "tasks"),
+                where("userId", "==", user.uid)
+            );
+
+            onSnapshot(tq, (snap) => {
+                let list = snap.docs.map(d => ({
+                    id: d.id,
+                    ...d.data()
+                }));
+
+                list.sort((a, b) => {
+                    const da = new Date(a.createdAt || 0);
+                    const db = new Date(b.createdAt || 0);
+                    return db - da;
                 });
 
-                return () => unsubscribeSnapshot();
-            } else {
-                setCurrentUserUid(null);
-                setTasks([]);
+                setTasks(list);
                 setLoading(false);
-            }
+            });
         });
 
-        return () => unsubscribeAuth();
-    }, [navigate]);
+        return () => unsub();
+    }, []);
 
-    // باقي المنطق كما هو...
-    const filteredAndSortedTasks = tasks
-        .filter((task) => {
+    // ==========================
+    // Filters
+    // ==========================
+
+    const filteredTasks = tasks
+        .filter(task => {
             if (statusFilter === "complete" && !task.completed) return false;
             if (statusFilter === "incomplete" && task.completed) return false;
-            if (assigneeFilter !== "all" && task.assignee !== assigneeFilter) return false;
             if (priorityFilter !== "all" && task.priority !== priorityFilter) return false;
             return true;
         })
@@ -117,218 +119,225 @@ export default function MyTasks() {
             return 0;
         });
 
-    const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-    const logout = () => navigate("/logout");
-
-    const handleChange = (e) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
-    };
+    // ==========================
+    // Handlers
+    // ==========================
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.title) return alert("Title is required!");
-        if (!currentUserUid) return alert("You must be logged in");
+        if (!form.title.trim()) return alert("Title is required!");
 
         try {
-            if (editingTaskId) {
-                const taskRef = doc(db, 'users', currentUserUid, 'personalTasks', editingTaskId);
-                await updateDoc(taskRef, {
+            if (editingId) {
+                await updateDoc(doc(db, "tasks", editingId), {
                     ...form,
-                    updatedAt: new Date().toISOString()
+                    updatedAt: new Date().toISOString(),
                 });
-                setEditingTaskId(null);
+                setEditingId(null);
             } else {
-                await addDoc(collection(db, 'users', currentUserUid, 'personalTasks'), {
+                await addDoc(collection(db, "tasks"), {
                     ...form,
+                    userId: uid,
                     completed: false,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
                 });
             }
+
             setForm({
                 title: "",
                 description: "",
                 dueDate: "",
                 priority: "Medium",
-                assignee: "Me",
+                courseId: "",
+                courseName: "",
             });
-        } catch (error) {
-            console.error("Error saving task:", error);
-            alert("Failed to save task");
+
+        } catch (err) {
+            console.error(err);
+            alert("Error saving task");
         }
     };
 
     const handleEdit = (task) => {
+        setEditingId(task.id);
         setForm({
             title: task.title,
             description: task.description,
             dueDate: task.dueDate,
             priority: task.priority,
-            assignee: task.assignee
+            courseId: task.courseId || "",
+            courseName: task.courseName || "",
         });
-        setEditingTaskId(task.id);
     };
 
     const handleDelete = async (id) => {
-        if (!currentUserUid) return;
-        if (window.confirm("Are you sure you want to delete this task?")) {
-            try {
-                await deleteDoc(doc(db, 'users', currentUserUid, 'personalTasks', id));
-            } catch (error) {
-                console.error("Error deleting task:", error);
-            }
-        }
+        if (!window.confirm("Delete this task?")) return;
+        await deleteDoc(doc(db, "tasks", id));
     };
 
     const toggleComplete = async (task) => {
-        if (!currentUserUid) return;
-        try {
-            const taskRef = doc(db, 'users', currentUserUid, 'personalTasks', task.id);
-            await updateDoc(taskRef, {
-                completed: !task.completed
-            });
-        } catch (error) {
-            console.error("Error updating task status:", error);
-        }
+        await updateDoc(doc(db, "tasks", task.id), {
+            completed: !task.completed,
+        });
     };
 
+    const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+
+    // ==========================
+    // UI
+    // ==========================
+
     if (loading) {
-        return (
-            <div className="dashboard-container">
-                <div className="main" style={{display:'flex', justifyContent:'center', alignItems:'center'}}>
-                    <h3>Loading tasks...</h3>
-                </div>
-            </div>
-        );
+        return <h3 style={{ textAlign: "center", marginTop: "50px" }}>Loading...</h3>;
     }
 
     return (
         <div className="dashboard-container">
+
             {/* Top Bar */}
             <div className="topbar">
                 <div className="top-left">
                     <button onClick={toggleSidebar}>☰</button>
                 </div>
                 <div className="top-center">{pageName}</div>
-                <div className="top-right">
-                    <button className="undo">↺</button>
-                    <button className="redo">↻</button>
-                </div>
             </div>
 
-            {/* Sidebar */}
-            {sidebarOpen && (
-                <aside className="side">
-                    <div className="user">
-                        <div className="avatar">
-                            {userInfo.displayName?.[0]?.toUpperCase() || 'U'}
-                        </div>
-                        <div>
-                            <div style={{ fontWeight: 800 }}>
-                                {userInfo.displayName}
-                            </div>
-                            <div className="email">{userInfo.email}</div>
-                        </div>
-                    </div>
+            <div className="content-wrapper">
 
-                    <div className="menu">
-                        <button
-                            className={nav === "account" ? "active" : ""}
-                            onClick={() => navigate("/dashboard")}
-                        >
-                            Dashboard
-                        </button>
-                        <button
-                            className={nav === "myTasks" ? "active" : ""}
-                            onClick={() => {
-                                setNav("myTasks");
-                                navigate("/myTasks");
-                            }}
-                        >
-                            My Tasks
-                        </button>
-                        <button
-                            className={nav === "courses" ? "active" : ""}
-                            onClick={() => {
-                                setNav("courses");
-                                navigate("/courses");
-                            }}
-                        >
-                            Courses
-                        </button>
-                        <button
-                            className={nav === "profile" ? "active" : ""}
-                            onClick={() => navigate("/profile")}
-                        >
-                            Profile
-                        </button>
-                    </div>
+                {/* Sidebar */}
+                <Sidebar
+                    isOpen={sidebarOpen}
+                    userInfo={userInfo}
+                    active="myTasks"
+                />
 
-                    <div className="logout">
-                        <button onClick={logout}>Log out</button>
-                    </div>
-                </aside>
-            )}
+                {/* Main */}
+                <div className="main">
 
-            {/* Main Content */}
-            <div className="main">
-                <div className="task-filters">
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="all">All Status</option>
-                        <option value="complete">Completed</option>
-                        <option value="incomplete">Incomplete</option>
-                    </select>
-                    <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)}>
-                        <option value="all">All Assignees</option>
-                        {MEMBERS.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
-                        <option value="all">All Priorities</option>
-                        {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                        <option value="none">Sort by Due Date</option>
-                        <option value="asc">Due Date ↑</option>
-                        <option value="desc">Due Date ↓</option>
-                    </select>
-                </div>
-
-                <div className="task-form-box">
-                    <h2>{editingTaskId ? "Edit Task" : "Create New Task"}</h2>
-                    <form onSubmit={handleSubmit}>
-                        <input type="text" name="title" placeholder="Title*" value={form.title} onChange={handleChange} required />
-                        <textarea name="description" placeholder="Description" value={form.description} onChange={handleChange} />
-                        <input type="date" name="dueDate" value={form.dueDate} onChange={handleChange} />
-                        <select name="priority" value={form.priority} onChange={handleChange}>
-                            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {/* Filters */}
+                    <div className="task-filters">
+                        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            <option value="all">All Status</option>
+                            <option value="complete">Completed</option>
+                            <option value="incomplete">Incomplete</option>
                         </select>
-                        <select name="assignee" value={form.assignee} onChange={handleChange}>
-                            {MEMBERS.map((m) => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                        <button type="submit">{editingTaskId ? "Update" : "Add Task"}</button>
-                    </form>
-                </div>
 
-                <div className="tasks-list">
-                    {filteredAndSortedTasks.length === 0 ? (
-                        <p style={{textAlign: 'center', color: '#888'}}>No tasks found.</p>
-                    ) : (
-                        filteredAndSortedTasks.map((task) => (
-                            <div key={task.id} className={`task-card ${task.completed ? "completed" : ""}`}>
-                                <h3>{task.title}</h3>
-                                {task.description && <p>{task.description}</p>}
-                                {task.dueDate && <p>Due: {task.dueDate}</p>}
-                                <p>Priority: {task.priority}</p>
-                                <p>Assignee: {task.assignee}</p>
-                                <div className="task-actions">
-                                    <button onClick={() => toggleComplete(task)}>
-                                        {task.completed ? "Mark Incomplete" : "Mark Complete"}
-                                    </button>
-                                    <button onClick={() => handleEdit(task)}>Edit</button>
-                                    <button onClick={() => handleDelete(task.id)}>Delete</button>
+                        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+                            <option value="all">All Priorities</option>
+                            {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+
+                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                            <option value="none">Sort by Due Date</option>
+                            <option value="asc">Due Date ↑</option>
+                            <option value="desc">Due Date ↓</option>
+                        </select>
+                    </div>
+
+                    {/* Form */}
+                    <div className="task-form-box">
+                        <h2>{editingId ? "Edit Task" : "Create New Task"}</h2>
+
+                        <form onSubmit={handleSubmit}>
+                            <input
+                                type="text"
+                                placeholder="Title*"
+                                value={form.title}
+                                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                                required
+                            />
+
+                            <textarea
+                                placeholder="Description"
+                                value={form.description}
+                                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                            />
+
+                            <input
+                                type="date"
+                                value={form.dueDate}
+                                onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+                            />
+
+                            <select
+                                value={form.priority}
+                                onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                            >
+                                {PRIORITIES.map(p => (
+                                    <option key={p} value={p}>{p}</option>
+                                ))}
+                            </select>
+
+                            <select
+                                value={form.courseId}
+                                onChange={(e) => {
+                                    const c = courses.find(x => x.id === e.target.value);
+                                    setForm({
+                                        ...form,
+                                        courseId: e.target.value,
+                                        courseName: c?.name || "",
+                                    });
+                                }}
+                            >
+                                <option value="">No Course</option>
+                                {courses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+
+                            <button type="submit">{editingId ? "Update" : "Add Task"}</button>
+                        </form>
+                    </div>
+
+                    {/* Tasks List */}
+                    <div className="tasks-list">
+                        {filteredTasks.length === 0 ? (
+                            <p style={{ textAlign: "center", color: "#93a0b4" }}>No tasks found.</p>
+                        ) : (
+                            filteredTasks.map(task => (
+                                <div key={task.id} className={`task-card ${task.completed ? "completed" : ""}`}>
+
+                                    {/* Check */}
+                                    <div
+                                        className={`task-check ${task.completed ? "completed" : ""}`}
+                                        onClick={() => toggleComplete(task)}
+                                    ></div>
+
+                                    {/* Content */}
+                                    <div className="task-info">
+                                        <div className={`task-title ${task.completed ? "completed" : ""}`}>
+                                            {task.title}
+                                        </div>
+
+                                        {task.courseName && (
+                                            <div className="task-meta">
+                                                Course: <strong>{task.courseName}</strong>
+                                            </div>
+                                        )}
+
+                                        {task.description && (
+                                            <div className="task-description">{task.description}</div>
+                                        )}
+
+                                        <div className="task-meta">
+                                            Due: {task.dueDate || "—"}
+                                            <span className={`priority-chip priority-${task.priority.toLowerCase()}`}>
+                                                {task.priority}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="task-actions">
+                                        <button onClick={() => handleEdit(task)}>✎</button>
+                                        <button className="delete" onClick={() => handleDelete(task.id)}>🗑</button>
+                                    </div>
+
                                 </div>
-                            </div>
-                        ))
-                    )}
+                            ))
+                        )}
+                    </div>
+
                 </div>
             </div>
         </div>
