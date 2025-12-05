@@ -2,7 +2,16 @@ import React, { useState, useEffect } from "react";
 import "../Components/Dashboard.css";
 import { auth, db } from "../firebase";
 import { useNavigate } from "react-router-dom";
-import { collection, query, where, addDoc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  addDoc,
+  onSnapshot,
+  deleteDoc,
+  doc,
+  getDocs
+} from "firebase/firestore";
 import Sidebar from "../Components/Sidebar";
 
 export default function Courses() {
@@ -17,7 +26,9 @@ export default function Courses() {
     description: "",
   });
 
+  // ==========================
   // Load user + courses
+  // ==========================
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return navigate("/login");
@@ -43,6 +54,9 @@ export default function Courses() {
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
+  // ==========================
+  // Create Course
+  // ==========================
   const handleAddCourse = async (e) => {
     e.preventDefault();
 
@@ -61,6 +75,42 @@ export default function Courses() {
     } catch (err) {
       console.error(err);
       alert("Error creating course");
+    }
+  };
+
+  // ==========================
+  // DELETE COURSE + related tasks
+  // ==========================
+  const handleDeleteCourse = async (courseId) => {
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
+
+    try {
+      // 1) DELETE MyTasks belonging to this course
+      const tasksSnap = await getDocs(
+        query(collection(db, "tasks"), where("courseId", "==", courseId))
+      );
+
+      for (const task of tasksSnap.docs) {
+        await deleteDoc(doc(db, "tasks", task.id));
+      }
+
+      // 2) DELETE SharedTasks belonging to this course
+      const sharedSnap = await getDocs(
+        query(collection(db, "generalTasks"), where("courseId", "==", courseId))
+      );
+
+      for (const s of sharedSnap.docs) {
+        await deleteDoc(doc(db, "generalTasks", s.id));
+      }
+
+      // 3) DELETE the course itself
+      await deleteDoc(doc(db, "courses", courseId));
+
+      alert("Course deleted successfully!");
+
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting course.");
     }
   };
 
@@ -115,9 +165,32 @@ export default function Courses() {
               </p>
             ) : (
               courses.map((course) => (
-                <div key={course.id} className="course-card">
+                <div
+                  key={course.id}
+                  className="course-card"
+                  style={{ position: "relative" }}
+                >
+
+                  {/* DELETE BUTTON */}
+                  <button
+                    onClick={() => handleDeleteCourse(course.id)}
+                    style={{
+                      position: "absolute",
+                      top: "10px",
+                      right: "10px",
+                      background: "transparent",
+                      border: "none",
+                      fontSize: "18px",
+                      cursor: "pointer",
+                      color: "#f55"
+                    }}
+                  >
+                    🗑
+                  </button>
+
                   <h3>{course.name}</h3>
                   <p>{course.description || "No description provided."}</p>
+
                 </div>
               ))
             )}

@@ -35,7 +35,7 @@ export default function MyTasks() {
         title: "",
         description: "",
         dueDate: "",
-        priority: "Medium",
+        priority: "priority",
         courseId: "",
         courseName: "",
     });
