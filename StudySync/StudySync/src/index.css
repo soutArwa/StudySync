@@ -1,0 +1,6 @@
+/* index.css — basic global styles */
+body {
+  margin: 0;
+  font-family: "Poppins", system-ui, sans-serif;
+  background-color: #f8fafc;
+}
