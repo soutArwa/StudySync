@@ -1,5 +1,4 @@
- 
-import { auth } from "../firebase";
+ import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
 import React, { useState, useMemo, useRef } from "react";
 import { registerUser } from "../Services/Authentication_email.service";
@@ -24,7 +23,7 @@ export default function Register() {
   const passRef = useRef(null);
   const confirmRef = useRef(null);
 
-  // === simple 3-level password analysis (Weak/Fair/Good) ===
+ 
   const analysis = useMemo(() => analyzePasswordSimple(pass), [pass]);
 
   const confirmMismatch = useMemo(
@@ -81,7 +80,7 @@ export default function Register() {
   const btnDisabled =
     loading || !first.trim() || !email.trim() || !pass || !confirm || confirmMismatch;
 
-  // ===== Palette-based styles =====
+ 
   const FIELD_H = 48;
   const baseField = {
     height: FIELD_H,
@@ -133,7 +132,7 @@ export default function Register() {
     borderRadius: 0,
   };
 
-  // Confirm border color
+ 
   const confirmBorder =
     confirm.length === 0
       ? "1px solid var(--border-color, rgba(255,255,255,0.08))"
@@ -165,7 +164,7 @@ export default function Register() {
   const handleKeyDown = (e) => setCapsLockOn(e.getModifierState && e.getModifierState("CapsLock"));
   const handleKeyUp = (e) => setCapsLockOn(e.getModifierState && e.getModifierState("CapsLock"));
 
-  // Strength colors (Weak / Fair / Good)
+ 
   const strengthColor =
     analysis.score === 1
       ? "var(--danger, #ff6b6b)"

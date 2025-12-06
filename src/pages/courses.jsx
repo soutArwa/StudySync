@@ -8,8 +8,10 @@ import {
   where,
   addDoc,
   onSnapshot,
+  updateDoc,
   deleteDoc,
   doc,
+  arrayUnion,
   getDocs
 } from "firebase/firestore";
 import Sidebar from "../Components/Sidebar";
@@ -17,187 +19,217 @@ import Sidebar from "../Components/Sidebar";
 export default function Courses() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [pageName] = useState("Courses");
 
-  const [userInfo, setUserInfo] = useState({ displayName: "", email: "" });
   const [courses, setCourses] = useState([]);
-  const [newCourse, setNewCourse] = useState({
+  const [allUsers, setAllUsers] = useState([]);
+  const [uid, setUid] = useState(null);
+
+  const [form, setForm] = useState({
     name: "",
-    description: "",
+    description: ""
   });
 
-  // ==========================
-  // Load user + courses
-  // ==========================
+  const [showModal, setShowModal] = useState(false);
+  const [studentEmail, setStudentEmail] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState(null);
+
+  const getUserName = (u) =>
+    u?.displayName?.trim() || u?.name?.trim() || u?.email || "Unknown";
+
+  // Load logged user
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) return navigate("/login");
-
-    setUserInfo({
-      displayName: user.displayName || "User",
-      email: user.email,
-    });
-
-    const q = query(
-      collection(db, "courses"),
-      where("members", "array-contains", user.uid)
-    );
-
-    onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setCourses(list);
-    });
+    const u = auth.currentUser;
+    if (!u) return navigate("/login");
+    setUid(u.uid);
   }, []);
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  // Load all users
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, []);
 
-  // ==========================
-  // Create Course
-  // ==========================
-  const handleAddCourse = async (e) => {
-    e.preventDefault();
+  // Load user courses
+  useEffect(() => {
+    if (!uid) return;
 
-    if (!newCourse.name.trim()) return alert("Course name required!");
+    const unsub = onSnapshot(
+      query(collection(db, "courses"), where("members", "array-contains", uid)),
+      (snap) => {
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setCourses(list);
+      }
+    );
+    return () => unsub();
+  }, [uid]);
 
-    try {
-      await addDoc(collection(db, "courses"), {
-        ...newCourse,
-        members: [auth.currentUser.uid],
-        createdAt: new Date().toISOString(),
-      });
-
-      setNewCourse({ name: "", description: "" });
-      alert("Course created!");
-
-    } catch (err) {
-      console.error(err);
-      alert("Error creating course");
-    }
+  const openAddStudentModal = (courseId) => {
+    setSelectedCourse(courseId);
+    setShowModal(true);
   };
 
-  // ==========================
-  // DELETE COURSE + related tasks
-  // ==========================
+  const handleCreateCourse = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) return alert("Course name required!");
+
+    await addDoc(collection(db, "courses"), {
+      name: form.name,
+      description: form.description,
+      members: [uid],
+      createdAt: new Date().toISOString()
+    });
+
+    setForm({ name: "", description: "" });
+  };
+
+  const addStudent = async () => {
+    if (!studentEmail.trim()) return alert("Enter email!");
+
+    const email = studentEmail.toLowerCase();
+    const found = allUsers.find((u) => u.email?.toLowerCase() === email);
+
+    if (!found) return alert("User not found!");
+
+    const ref = doc(db, "courses", selectedCourse);
+
+    await updateDoc(ref, {
+      members: arrayUnion(found.uid)
+    });
+
+    setShowModal(false);
+    setStudentEmail("");
+  };
+
   const handleDeleteCourse = async (courseId) => {
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
+    if (!window.confirm("Delete this course?")) return;
 
-    try {
-      // 1) DELETE MyTasks belonging to this course
-      const tasksSnap = await getDocs(
-        query(collection(db, "tasks"), where("courseId", "==", courseId))
-      );
+    const tasks1 = await getDocs(
+      query(collection(db, "tasks"), where("courseId", "==", courseId))
+    );
+    tasks1.forEach((t) => deleteDoc(doc(db, "tasks", t.id)));
 
-      for (const task of tasksSnap.docs) {
-        await deleteDoc(doc(db, "tasks", task.id));
-      }
+    const tasks2 = await getDocs(
+      query(collection(db, "generalTasks"), where("courseId", "==", courseId))
+    );
+    tasks2.forEach((t) => deleteDoc(doc(db, "generalTasks", t.id)));
 
-      // 2) DELETE SharedTasks belonging to this course
-      const sharedSnap = await getDocs(
-        query(collection(db, "generalTasks"), where("courseId", "==", courseId))
-      );
-
-      for (const s of sharedSnap.docs) {
-        await deleteDoc(doc(db, "generalTasks", s.id));
-      }
-
-      // 3) DELETE the course itself
-      await deleteDoc(doc(db, "courses", courseId));
-
-      alert("Course deleted successfully!");
-
-    } catch (err) {
-      console.error(err);
-      alert("Error deleting course.");
-    }
+    await deleteDoc(doc(db, "courses", courseId));
   };
 
   return (
     <div className="dashboard-container">
 
-      {/* Top Bar */}
       <div className="topbar">
-        <button onClick={toggleSidebar}>☰</button>
-        <div className="top-center">{pageName}</div>
+        <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+        <div className="top-center">Courses</div>
       </div>
 
       <div className="content-wrapper">
+        <Sidebar isOpen={sidebarOpen} active="courses" />
 
-        {/* Sidebar */}
-        <Sidebar isOpen={sidebarOpen} userInfo={userInfo} active="courses" />
-
-        {/* Main */}
         <div className="main">
-
-          <h2>Your Courses</h2>
-
-          {/* Add New Course */}
+          
           <div className="task-form-box">
-            <h3>Create New Course</h3>
+            <h2>Create Course</h2>
 
-            <form onSubmit={handleAddCourse}>
+            <form onSubmit={handleCreateCourse}>
               <input
-                type="text"
-                placeholder="Course Name"
-                value={newCourse.name}
-                onChange={(e) => setNewCourse({ ...newCourse, name: e.target.value })}
+                className="task-input"
+                placeholder="Course Name*"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
 
               <textarea
-                placeholder="Description"
-                value={newCourse.description}
+                className="task-input"
+                placeholder="Course Description"
+                value={form.description}
                 onChange={(e) =>
-                  setNewCourse({ ...newCourse, description: e.target.value })
+                  setForm({ ...form, description: e.target.value })
                 }
               />
 
-              <button type="submit">Create Course</button>
+              <button className="submit-btn">Create</button>
             </form>
           </div>
 
-          {/* Courses List */}
-          <div className="courses-grid">
-            {courses.length === 0 ? (
-              <p style={{ textAlign: "center", color: "#93a0b4" }}>
-                No courses found.
-              </p>
-            ) : (
-              courses.map((course) => (
-                <div
-                  key={course.id}
-                  className="course-card"
-                  style={{ position: "relative" }}
-                >
+          <div className="tasks-list">
+            {courses.map((course) => (
+              <div key={course.id} className="task-card">
 
-                  {/* DELETE BUTTON */}
+                <div className="task-actions">
                   <button
+                    className="delete"
                     onClick={() => handleDeleteCourse(course.id)}
-                    style={{
-                      position: "absolute",
-                      top: "10px",
-                      right: "10px",
-                      background: "transparent",
-                      border: "none",
-                      fontSize: "18px",
-                      cursor: "pointer",
-                      color: "#f55"
-                    }}
                   >
                     🗑
                   </button>
-
-                  <h3>{course.name}</h3>
-                  <p>{course.description || "No description provided."}</p>
-
                 </div>
-              ))
-            )}
+
+                <div className="task-title">{course.name}</div>
+
+                {course.description && (
+                  <div className="task-description">{course.description}</div>
+                )}
+
+                <div className="task-meta" style={{ marginTop: 10 }}>
+                  <strong>Students:</strong>
+                </div>
+
+                {course.members.map((uid) => {
+                  const u = allUsers.find((x) => x.uid === uid);
+                  return (
+                    <div key={uid} className="task-meta" style={{ paddingLeft: 10 }}>
+                      • {u ? `${getUserName(u)} (${u.email})` : "Unknown"}
+                    </div>
+                  );
+                })}
+
+                <button
+                  className="submit-btn"
+                  style={{ marginTop: 15 }}
+                  onClick={() => openAddStudentModal(course.id)}
+                >
+                  + Add Student
+                </button>
+
+              </div>
+            ))}
           </div>
 
         </div>
       </div>
+
+      {/* MODAL */}
+      {showModal && (
+        <div className="modal-bg">
+          <div className="modal">
+            <h3>Add Student</h3>
+
+            <p>
+              Course:{" "}
+              <strong>{courses.find((c) => c.id === selectedCourse)?.name}</strong>
+            </p>
+
+            <input
+              className="task-input"
+              placeholder="Student Email"
+              value={studentEmail}
+              onChange={(e) => setStudentEmail(e.target.value)}
+            />
+
+            <button className="submit-btn" onClick={addStudent}>
+              Add
+            </button>
+
+            <button className="cancel-btn" onClick={() => setShowModal(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

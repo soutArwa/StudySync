@@ -1,6 +1,5 @@
  import React, { useState, useEffect } from "react";
 import { auth } from "../firebase";
-import { updateProfile } from "firebase/auth";
 import "../Components/Dashboard.css";
 import Sidebar from "../Components/Sidebar";
 
@@ -13,8 +12,6 @@ export default function Profile() {
     email: "",
   });
 
-  const [newName, setNewName] = useState("");
-
   // Load user info
   useEffect(() => {
     const user = auth.currentUser;
@@ -23,25 +20,10 @@ export default function Profile() {
         displayName: user.displayName || "User",
         email: user.email,
       });
-      setNewName(user.displayName || "");
     }
   }, []);
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
-
-  const handleUpdateName = async () => {
-    const user = auth.currentUser;
-    if (!newName.trim()) return alert("Name cannot be empty!");
-
-    try {
-      await updateProfile(user, { displayName: newName });
-      alert("Name updated!");
-      setUserInfo((prev) => ({ ...prev, displayName: newName }));
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update name");
-    }
-  };
 
   return (
     <div className="dashboard-container">
@@ -62,24 +44,20 @@ export default function Profile() {
         {/* Main */}
         <div className="main">
 
-          <h2>Profile Information</h2>
+          <h2>Your Profile</h2>
 
           <div className="profile-box">
-            <label>Name</label>
-            <input
-              type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-            />
 
-            <label>Email</label>
-            <input
-              type="text"
-              value={userInfo.email}
-              disabled
-            />
+            <h3 style={{ marginBottom: "10px" }}>Display Name</h3>
+            <p style={{ fontSize: "1.1rem", color: "#333" }}>
+              {userInfo.displayName}
+            </p>
 
-            <button onClick={handleUpdateName}>Update Name</button>
+            <h3 style={{ marginTop: "20px", marginBottom: "10px" }}>Email</h3>
+            <p style={{ fontSize: "1.1rem", color: "#333" }}>
+              {userInfo.email}
+            </p>
+
           </div>
 
         </div>
