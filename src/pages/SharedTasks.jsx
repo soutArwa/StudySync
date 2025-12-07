@@ -642,9 +642,12 @@ export default function SharedTasks() {
   return (
     <div className="dashboard-container">
       <div className="topbar">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
-        <div className="top-center">Shared Tasks</div>
-      </div>
+  <div className="top-left">
+    <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+  </div>
+  <div className="top-center">Shared Tasks</div>
+</div>
+
 
       <div className="content-wrapper">
         <Sidebar isOpen={sidebarOpen} userInfo={userInfo} active="sharedTasks" />

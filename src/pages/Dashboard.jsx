@@ -28,9 +28,7 @@ export default function Dashboard() {
       });
 
       try {
-        // ================================
         // Fetch Courses
-        // ================================
         const cq = query(
           collection(db, "courses"),
           where("members", "array-contains", u.uid)
@@ -42,13 +40,8 @@ export default function Dashboard() {
         }));
         setCourses(fetchedCourses);
 
-        // ================================
-        // Fetch Personal Tasks (collection: tasks)
-        // ================================
-        const tq1 = query(
-          collection(db, "tasks"),
-          where("userId", "==", u.uid)
-        );
+        // Fetch personal tasks
+        const tq1 = query(collection(db, "tasks"), where("userId", "==", u.uid));
         const personalSnap = await getDocs(tq1);
         let personalTasks = personalSnap.docs.map((d) => ({
           id: d.id,
@@ -56,9 +49,7 @@ export default function Dashboard() {
           ...d.data(),
         }));
 
-        // ================================
-        // Fetch Shared Tasks (collection: generalTasks)
-        // ================================
+        // Fetch shared tasks
         const tq2 = query(collection(db, "generalTasks"));
         const sharedSnap = await getDocs(tq2);
 
@@ -69,26 +60,16 @@ export default function Dashboard() {
             ...d.data(),
           }))
           .filter((task) => {
-            // Logic copied from SharedTasks.jsx  :contentReference[oaicite:0]{index=0}
             const inSameCourse = fetchedCourses.some(c => c.id === task.courseId);
             const assigned = task.assignedTo?.includes(u.uid);
             const createdByMe = task.createdBy === u.uid;
             return inSameCourse || assigned || createdByMe;
           });
 
-        // ================================
         // Merge + Sort + Limit to 5
-        // ================================
         let combined = [...personalTasks, ...sharedTasks];
-
-        combined.sort((a, b) => {
-          const da = new Date(a.createdAt || 0);
-          const db = new Date(b.createdAt || 0);
-          return db - da;
-        });
-
-        setRecentTasks(combined.slice(0, 5)); // latest 5 tasks only
-
+        combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        setRecentTasks(combined.slice(0, 5));
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -100,86 +81,66 @@ export default function Dashboard() {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
-    <div className="app">
-      <div className="dashboard-container">
-        
-        {/* Top Bar */}
-        <div className="topbar">
-          <div className="top-left">
-            <button onClick={toggleSidebar}>☰</button>
-          </div>
-          <div className="top-center">{pageName}</div>
+    <div className="dashboard-container">
+      <div className="topbar">
+        <div className="top-left">
+          <button onClick={toggleSidebar}>☰</button>
         </div>
+        <div className="top-center">{pageName}</div>
+      </div>
 
-        {/* Content Area */}
-        <div className="content-wrapper">
-          <Sidebar
-            isOpen={sidebarOpen}
-            userInfo={userInfo}
-            active="dashboard"
-          />
+      <div className="content-wrapper">
+        <Sidebar
+          isOpen={sidebarOpen}
+          userInfo={userInfo}
+          active="dashboard"
+        />
 
-          <div className="main">
+        <div className="main">
+          {/* Courses */}
+          <h2>Courses this semester</h2>
+          <div className="courses-grid">
+            {courses.length === 0 ? (
+              <p style={{ padding: "20px", color: "#888" }}>No courses found.</p>
+            ) : (
+              courses.map((course) => (
+                <div key={course.id} className="course-card">
+                  <h3>{course.name}</h3>
+                  <p>{course.description || "No description provided."}</p>
+                </div>
+              ))
+            )}
+          </div>
 
-            {/* Courses */}
-            <h2>Courses this semester</h2>
-            <div className="courses-grid">
-              {courses.length === 0 ? (
-                <p style={{ padding: "20px", color: "#888" }}>
-                  No courses found.
-                </p>
-              ) : (
-                courses.map((course) => (
-                  <div key={course.id} className="course-card">
-                    <h3>{course.name}</h3>
-                    <p>{course.description || "No description provided."}</p>
-                  </div>
-                ))
-              )}
-            </div>
+          {/* Recent Tasks */}
+          <h2 style={{ marginTop: "40px" }}>Recent Tasks</h2>
+          <div className="tasks-list">
+            {recentTasks.length === 0 ? (
+              <p style={{ padding: "10px", color: "#888" }}>No recent tasks.</p>
+            ) : (
+              recentTasks.map((task) => (
 
-            {/* Recent Tasks */}
-            <h2 style={{ marginTop: "40px" }}>Recent Tasks</h2>
-
-            <div className="tasks-list">
-              {recentTasks.length === 0 ? (
-                <p style={{ padding: "10px", color: "#888" }}>
-                  No recent tasks.
-                </p>
-              ) : (
-                recentTasks.map((task) => (
-                  <div key={task.id} className="task-card">
-                    
-                    <div className="task-title">
-                      {task.title}
+                <div key={task.id} className="task-card">
+                  <div className="task-title">{task.title}</div>
+                  <div className="task-meta">
+                    <span className={`priority-chip priority-${task.priority.toLowerCase()}`}>
+                      {task.priority}
+                    </span>
+                    <div>
+                      <strong>{task.type === "shared" ? "Shared Task" : "My Task"}</strong>
                     </div>
-
-                    <div className="task-meta">
-                      <div>
-                        <strong>
-                          {task.type === "shared" ? "Shared Task" : "My Task"}
-                        </strong>
+                    {task.courseName && (
+                      <div style={{ marginBottom: "4px" }}>
+                        Course: <strong>{task.courseName}</strong>
                       </div>
-
-                      {task.courseName && (
-                        <div style={{ marginBottom: "4px" }}>
-                          Course: <strong>{task.courseName}</strong>
-                        </div>
-                      )}
-
-                      <div>
-                        Due: {task.dueDate || "—"}
-                      </div>
-                    </div>
-
+                    )}
+                    <div>Due: {task.dueDate || "—"}</div>
                   </div>
-                ))
-              )}
-            </div>
-
+                </div>
+              ))
+            )}
           </div>
         </div>
-
       </div>
     </div>
   );
