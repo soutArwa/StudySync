@@ -480,11 +480,11 @@ body, html {
   color: #fff;
 }
 .priority-medium {
-  background-color: #f97316; 
+  background-color: #f9e216; 
   color: #fff;
 }
 .priority-low {
-  background-color: #facc15; 
+  background-color: #23c514; 
   color: #000;
 }
 /* ================================
@@ -585,4 +585,70 @@ body, html {
   .side {
     width: 200px;
   }
+}
+/*---------------------
+/* ======================================
+   SOFT MODERN GLOW — SAFE GLOBAL UPGRADE
+====================================== */
+
+ 
+.task-card,
+.course-card,
+.task-form-box,
+.profile-box {
+  position: relative;
+  overflow: hidden;
+}
+
+.task-card::before,
+.course-card::before,
+.task-form-box::before,
+.profile-box::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    rgba(124, 92, 255, 0.35),
+    rgba(124, 92, 255, 0.05)
+  );
+  -webkit-mask: 
+       linear-gradient(#fff 0 0) content-box, 
+       linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+ 
+.task-card:hover,
+.course-card:hover,
+.task-form-box:hover,
+.profile-box:hover {
+  box-shadow: 0 0 16px rgba(124, 92, 255, 0.18) !important;
+  transform: translateY(-3px);
+  transition: 0.3s ease;
+}
+
+ 
+.main {
+  transition: box-shadow 0.3s ease;
+}
+
+.main:hover {
+  box-shadow: 0 0 20px rgba(124, 92, 255, 0.10);
+}
+ 
+.priority-high {
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.25);
+}
+
+.priority-medium {
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.25);
+}
+
+.priority-low {
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.25);
 }

@@ -1,4 +1,4 @@
- import { auth } from "../firebase";
+import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
 import React, { useState, useMemo, useRef } from "react";
 import { registerUser } from "../Services/Authentication_email.service";
