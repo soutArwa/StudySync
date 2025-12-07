@@ -1,0 +1,105 @@
+:root {
+  --bg-main: #0b1220;
+  --bg-panel: #0f1729;
+  --glass: rgba(255, 255, 255, 0.06);
+
+  --brand-violet: #7c5cff;
+  --brand-violet-light: #9d7fff;
+
+  --text-primary: #e6eaf3;
+  --text-muted: #93a0b4;
+
+  --border-color: rgba(255, 255, 255, 0.08);
+
+  --success: #34d399;
+  --warning: #f59e0b;
+  --danger: #ff6b6b;
+
+  --shadow-glass: 0 12px 30px rgba(0, 0, 0, 0.4);
+  --focus-ring-violet: rgba(124, 92, 255, 0.2);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: var(--bg-main);
+  color: var(--text-primary);
+}
+
+.custom {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 32px 0;
+}
+
+.custom__wrap {
+  width: min(500px, 92vw);
+  display: grid;
+}
+
+.custom__panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 28px;
+  display: grid;
+  gap: 16px;
+  box-shadow: var(--shadow-glass);
+}
+
+.custom__panel h1,
+.custom__panel h2,
+.custom__panel h3 {
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+}
+
+.custom__panel p { color: var(--text-muted); margin: 0; }
+
+.custom__panel form { display: grid; gap: 12px; }
+
+.custom__panel input {
+  font: inherit;
+  padding: 12px 44px 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  outline: none;
+  background: var(--glass);
+  color: var(--text-primary);
+  backdrop-filter: blur(10px);
+}
+
+.custom__panel input:focus {
+  border-color: var(--brand-violet);
+  box-shadow: 0 0 0 3px var(--focus-ring-violet);
+}
+
+.custom__panel button {
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--brand-violet) 0%, var(--brand-violet-light) 100%);
+  color: #ffffff;
+  border: 0;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(124, 92, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.custom__panel button:hover {
+  box-shadow: 0 6px 16px rgba(124, 92, 255, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.custom__panel button[disabled] { opacity: 0.6; cursor: default; }
+
+.custom__panel a { color: var(--brand-violet); text-decoration: none; }
+
+input:focus { 
+  border-color: var(--brand-violet);
+  box-shadow: 0 0 0 4px var(--focus-ring-violet);
+  outline: none;
+}
+
