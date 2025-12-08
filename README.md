@@ -84,7 +84,7 @@ Functionalities include:
 
 ### **D. Frontend UI**
 
-* Developed using **React (Vite)**
+* Developed using **React (Vite) , CSS**
 * Fully responsive single-page application (SPA)
 * Includes:
 
@@ -98,7 +98,7 @@ Functionalities include:
 
 ## **4. Technology Stack**
 
-* **Frontend:** React (Vite)
+* **Frontend:** React (Vite) , CSS
 * **Authentication:** Firebase Authentication
 * **Database:** Firebase Firestore
 * **Hosting:** Firebase Hosting
