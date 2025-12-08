@@ -55,22 +55,23 @@ University students working in groups often share deadlines, tasks, and project 
 * Email and password authentication
 * User profile storage (email + display name)
 * Email verification
-* *Optional:* Password reset capability
+ 
 
 ### **B. Task Management (CRUD)**
 
 Each task supports:
 
-* Title (required)
-* Description (optional)
-* Due date (optional)
+* Title
+* Description
+* Due date  
 * Priority (Low / Medium / High)
-* Assignment to a group member
+* Assignment to a group member ( Shared Tasks )
 
 Functionalities include:
 
 * Create tasks
 * View and filter tasks
+* View and filter courses among tasks
 * Edit task details
 * Mark tasks complete/incomplete
 * Delete tasks
@@ -80,7 +81,6 @@ Functionalities include:
 * Built using **Firebase Firestore**
 * All changes instantly synchronized for users in the same course
 * Data hierarchy: **Users → Courses → Tasks**
-* Optimized structure for course-based collaboration
 
 ### **D. Frontend UI**
 
@@ -89,7 +89,7 @@ Functionalities include:
 * Includes:
 
   * Login / Register page
-  * Dashboard with user-wide task overview
+  * Dashboard with user-wide course & tasks overview
   * Course-specific task pages
   * Forms for adding and editing tasks
   * Clear distinction between completed and pending tasks
@@ -140,9 +140,6 @@ Application will run on:
 ```
 http://localhost:5173/
 ```
-
----
-
 
 
 ---
