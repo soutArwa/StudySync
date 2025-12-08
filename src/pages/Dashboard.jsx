@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from "react";
-import { auth, db } from "../firebase";
-import { useNavigate } from "react-router-dom";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
 import "../Components/Dashboard.css";
+import { useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  orderBy,
+} from "firebase/firestore";
 import Sidebar from "../Components/Sidebar";
 
 export default function Dashboard() {
@@ -10,136 +17,271 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const pageName = "Dashboard";
 
-  const [userInfo, setUserInfo] = useState({ displayName: "", email: "" });
-  const [courses, setCourses] = useState([]);
-  const [recentTasks, setRecentTasks] = useState([]);
+  const [userInfo, setUserInfo] = useState({
+    displayName: "",
+    email: "",
+    uid: null,
+  });
 
+  const [courses, setCourses] = useState([]);
+  const [recentTasks, setRecentTasks] = useState([]); // ← NEW
+
+  // ترتيب حسب createdAt
+  const sortByCreatedAtDesc = (a, b) => {
+    const getTime = (val) => {
+      if (!val) return 0;
+      if (val.toMillis) return val.toMillis();
+      const t = new Date(val).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+    return getTime(b.createdAt) - getTime(a.createdAt);
+  };
+
+  // ===========================
+  // LOAD USER + COURSES
+  // ===========================
   useEffect(() => {
-    const fetchData = async () => {
-      const u = auth.currentUser;
-      if (!u) {
+    let unsubCourses = () => {};
+
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        setUserInfo({ displayName: "", email: "", uid: null });
+        setCourses([]);
+        setRecentTasks([]);
         navigate("/login");
         return;
       }
 
       setUserInfo({
-        displayName: u.displayName || "User",
-        email: u.email,
+        displayName: user.displayName || "User",
+        email: user.email,
+        uid: user.uid,
       });
 
-      try {
-        // Fetch Courses
-        const cq = query(
-          collection(db, "courses"),
-          where("members", "array-contains", u.uid)
-        );
-        const coursesSnap = await getDocs(cq);
-        const fetchedCourses = coursesSnap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setCourses(fetchedCourses);
+      const cq = query(
+        collection(db, "courses"),
+        where("members", "array-contains", user.uid)
+      );
 
-        // Fetch personal tasks
-        const tq1 = query(collection(db, "tasks"), where("userId", "==", u.uid));
-        const personalSnap = await getDocs(tq1);
-        let personalTasks = personalSnap.docs.map((d) => ({
+      unsubCourses = onSnapshot(cq, (snap) => {
+        const list = snap.docs.map((d) => ({
           id: d.id,
-          type: "personal",
           ...d.data(),
         }));
+        setCourses(list);
+      });
+    });
 
-        // Fetch shared tasks
-        const tq2 = query(collection(db, "generalTasks"));
-        const sharedSnap = await getDocs(tq2);
-
-        let sharedTasks = sharedSnap.docs
-          .map((d) => ({
-            id: d.id,
-            type: "shared",
-            ...d.data(),
-          }))
-          .filter((task) => {
-            const inSameCourse = fetchedCourses.some(c => c.id === task.courseId);
-            const assigned = task.assignedTo?.includes(u.uid);
-            const createdByMe = task.createdBy === u.uid;
-            return inSameCourse || assigned || createdByMe;
-          });
-
-        // Merge + Sort + Limit to 5
-        let combined = [...personalTasks, ...sharedTasks];
-        combined.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        setRecentTasks(combined.slice(0, 5));
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      }
+    return () => {
+      unsubAuth();
+      unsubCourses();
     };
-
-    fetchData();
   }, [navigate]);
 
-  const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
+  // ===========================
+  // LOAD RECENT TASKS
+  // ===========================
+  useEffect(() => {
+    if (!userInfo.uid) return;
+    const uid = userInfo.uid;
 
+    // ------- My Tasks -------
+    const myQ = query(
+      collection(db, "tasks"),
+      where("userId", "==", uid),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubMy = onSnapshot(myQ, (snap) => {
+      const myTasks = snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        _type: "my",
+      }));
+
+      const recentMy = myTasks.sort(sortByCreatedAtDesc).slice(0, 2);
+
+      setRecentTasks((prev) => {
+        const sharedOnly = prev.filter((t) => t._type === "shared");
+        return [...recentMy, ...sharedOnly].sort(sortByCreatedAtDesc);
+      });
+    });
+
+    // ------- Shared Tasks -------
+    const sharedQ = query(
+      collection(db, "generalTasks"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubShared = onSnapshot(sharedQ, (snap) => {
+      const sharedTasks = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...d.data(),
+          _type: "shared",
+        }))
+        .filter((task) => task.assignedTo?.includes(uid));
+
+      const recentShared = sharedTasks.sort(sortByCreatedAtDesc).slice(0, 2);
+
+      setRecentTasks((prev) => {
+        const myOnly = prev.filter((t) => t._type === "my");
+        return [...myOnly, ...recentShared].sort(sortByCreatedAtDesc);
+      });
+    });
+
+    return () => {
+      unsubMy();
+      unsubShared();
+    };
+  }, [userInfo.uid]);
+
+  // ===========================
+  // TASK CLICK HANDLER
+  // ===========================
+  const goToTaskSource = (task) => {
+    if (task._type === "my") navigate("/myTasks");
+    else navigate("/sharedTasks");
+  };
+
+  // ===========================
+  // RENDER
+  // ===========================
   return (
     <div className="dashboard-container">
+      {/* Top bar */}
       <div className="topbar">
         <div className="top-left">
-          <button onClick={toggleSidebar}>☰</button>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
         </div>
         <div className="top-center">{pageName}</div>
       </div>
 
       <div className="content-wrapper">
-        <Sidebar
-          isOpen={sidebarOpen}
-          userInfo={userInfo}
-          active="dashboard"
-        />
+        <Sidebar isOpen={sidebarOpen} userInfo={userInfo} active="dashboard" />
 
         <div className="main">
-          {/* Courses */}
-          <h2>Courses this semester</h2>
-          <div className="courses-grid">
-            {courses.length === 0 ? (
-              <p style={{ padding: "20px", color: "#888" }}>No courses found.</p>
-            ) : (
-              courses.map((course) => (
-                <div key={course.id} className="course-card">
-                  <h3>{course.name}</h3>
-                  <p>{course.description || "No description provided."}</p>
+          {/* COURSES */}
+          <h2 className="section-title">Your Courses</h2>
+
+          {courses.length === 0 ? (
+            <p style={{ color: "#93a0b4" }}>No courses found.</p>
+          ) : (
+            <div className="courses-grid">
+              {courses.map((course) => (
+                <div
+                  key={course.id}
+                  className="course-card"
+                  style={{
+                    cursor: "pointer",
+                    padding: "18px",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    background: "rgba(255,255,255,0.03)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    transition: "0.2s",
+                  }}
+                  onClick={() => navigate("/courses")}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.06)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background =
+                      "rgba(255,255,255,0.03)")
+                  }
+                >
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      fill="#7c5cff"
+                      viewBox="0 0 24 24"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <path d="M4 4h16v2H4zm0 4h16v12H4z" />
+                    </svg>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: 18,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {course.name}
+                    </h3>
+                  </div>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#93a0b4",
+                      fontSize: 14,
+                    }}
+                  >
+                    {course.description || "No description provided."}
+                  </p>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: "#a9b4c9",
+                      fontSize: 13,
+                    }}
+                  >
+                    {course.members?.length || 0} students enrolled
+                  </p>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* Recent Tasks */}
-          <h2 style={{ marginTop: "40px" }}>Recent Tasks</h2>
-          <div className="tasks-list">
-            {recentTasks.length === 0 ? (
-              <p style={{ padding: "10px", color: "#888" }}>No recent tasks.</p>
-            ) : (
-              recentTasks.map((task) => (
+          {/* RECENT TASKS */}
+          <h2 className="section-title" style={{ marginTop: 40 }}>
+            Recent Tasks
+          </h2>
 
-                <div key={task.id} className="task-card">
+          {recentTasks.length === 0 ? (
+            <p style={{ color: "#93a0b4" }}>No recent tasks.</p>
+          ) : (
+            <div className="tasks-list">
+              {recentTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="task-card"
+                  onClick={() => goToTaskSource(task)}
+                  style={{ cursor: "pointer" }}
+                >
                   <div className="task-title">{task.title}</div>
+
                   <div className="task-meta">
-                    <span className={`priority-chip priority-${task.priority.toLowerCase()}`}>
-                      {task.priority}
-                    </span>
-                    <div>
-                      <strong>{task.type === "shared" ? "Shared Task" : "My Task"}</strong>
-                    </div>
-                    {task.courseName && (
-                      <div style={{ marginBottom: "4px" }}>
-                        Course: <strong>{task.courseName}</strong>
-                      </div>
+                    {task.priority && (
+                      <span
+                        className={`priority-chip priority-${task.priority.toLowerCase()}`}
+                      >
+                        {task.priority}
+                      </span>
                     )}
+
+                    <div
+                      style={{
+                        color: "#93a0b4",
+                        fontSize: "12px",
+                      }}
+                    >
+                      {task._type === "my" ? "My Task" : "Shared Task"}
+                    </div>
+
                     <div>Due: {task.dueDate || "—"}</div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

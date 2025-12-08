@@ -31,7 +31,7 @@ export default function SharedTasks() {
 
   const [courseMembers, setCourseMembers] = useState([]);
 
-  const [selectedCourse, setSelectedCourse] = useState("all"); // ⭐ NEW
+  const [selectedCourse, setSelectedCourse] = useState("all");
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStudentEmail, setNewStudentEmail] = useState("");
@@ -40,7 +40,7 @@ export default function SharedTasks() {
     title: "",
     description: "",
     dueDate: "",
-    priority: "Medium",
+    priority: "",
     courseId: "",
     assignedTo: []
   });
@@ -63,7 +63,7 @@ export default function SharedTasks() {
     setUserInfo({ displayName: u.displayName || "User", email: u.email });
   }, []);
 
-  // Load all users
+  // Load users
   useEffect(() =>
     onSnapshot(collection(db, "users"), (snap) =>
       setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })))
@@ -76,10 +76,7 @@ export default function SharedTasks() {
 
     return onSnapshot(
       query(collection(db, "courses"), where("members", "array-contains", uid)),
-      (snap) => {
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setCourses(list);
-      }
+      (snap) => setCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
   }, [uid]);
 
@@ -101,7 +98,7 @@ export default function SharedTasks() {
     });
   }, [courses, uid]);
 
-  // Update course members when selecting a course
+  // Update course members
   useEffect(() => {
     if (!form.courseId) return setCourseMembers([]);
     const c = courses.find((x) => x.id === form.courseId);
@@ -128,7 +125,8 @@ export default function SharedTasks() {
     setNewStudentEmail("");
     setShowAddModal(false);
   };
- 
+
+  // Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return alert("Title required!");
@@ -137,15 +135,10 @@ export default function SharedTasks() {
       return alert("Assign at least one student!");
 
     const course = courses.find((c) => c.id === form.courseId);
-    const courseRef = doc(db, "courses", form.courseId);
-
-    for (const id of form.assignedTo) {
-      await updateDoc(courseRef, { members: arrayUnion(id) });
-    }
 
     const payload = {
       ...form,
-      courseName: course?.name || "Unknown Course",
+      courseName: course?.name,
       updatedAt: new Date().toISOString()
     };
 
@@ -165,16 +158,14 @@ export default function SharedTasks() {
       title: "",
       description: "",
       dueDate: "",
-      priority: "Medium",
+      priority: "",
       courseId: "",
       assignedTo: []
     });
   };
 
   const toggleComplete = async (task) =>
-    await updateDoc(doc(db, "generalTasks", task.id), {
-      completed: !task.completed
-    });
+    await updateDoc(doc(db, "generalTasks", task.id), { completed: !task.completed });
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete?")) return;
@@ -193,7 +184,6 @@ export default function SharedTasks() {
     });
   };
 
- 
   let filteredTasks = tasks.filter((task) => {
     if (selectedCourse !== "all" && task.courseId !== selectedCourse) return false;
     if (statusFilter === "complete" && !task.completed) return false;
@@ -213,7 +203,6 @@ export default function SharedTasks() {
   return (
     <div className="dashboard-container">
 
-      {/* Top Bar */}
       <div className="topbar">
         <div className="top-left">
           <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
@@ -227,15 +216,11 @@ export default function SharedTasks() {
 
         <div className="main">
 
-          { }
           <div className="task-filters">
-
             <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
               <option value="all">All Courses</option>
               {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
 
@@ -248,9 +233,7 @@ export default function SharedTasks() {
             <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
               <option value="all">All Priorities</option>
               {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
 
@@ -277,9 +260,7 @@ export default function SharedTasks() {
                 className="task-input"
                 placeholder="Description"
                 value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
 
               <div style={{ display: "flex", gap: "10px" }}>
@@ -287,20 +268,18 @@ export default function SharedTasks() {
                   className="task-input"
                   type="date"
                   value={form.dueDate}
-                  onChange={(e) =>
-                    setForm({ ...form, dueDate: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
                 />
 
+                {/* PRIORITY Placeholder */}
                 <select
                   className="task-input"
                   value={form.priority}
-                  onChange={(e) =>
-                    setForm({ ...form, priority: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, priority: e.target.value })}
                 >
+                  <option value="" disabled hidden>Priority</option>
                   {PRIORITIES.map((p) => (
-                    <option key={p}>{p}</option>
+                    <option key={p} value={p}>{p}</option>
                   ))}
                 </select>
               </div>
@@ -308,15 +287,11 @@ export default function SharedTasks() {
               <select
                 className="task-input"
                 value={form.courseId}
-                onChange={(e) =>
-                  setForm({ ...form, courseId: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, courseId: e.target.value })}
               >
                 <option value="">Select Course</option>
                 {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
@@ -360,9 +335,8 @@ export default function SharedTasks() {
             </form>
           </div>
 
-          { }
+          {/* NO TASKS */}
           <div className="tasks-list">
-
             {filteredTasks.length === 0 ? (
               <p style={{ textAlign: "center", color: "#93a0b4" }}>
                 No tasks found.
@@ -396,7 +370,7 @@ export default function SharedTasks() {
                       <div className="task-meta">
                         Due: {task.dueDate || "—"}
                         <span
-                          className={`priority-chip priority-${task.priority.toLowerCase()}`}
+                          className={`priority-chip priority-${task.priority?.toLowerCase()}`}
                         >
                           {task.priority}
                         </span>
@@ -413,19 +387,18 @@ export default function SharedTasks() {
 
                     <div className="task-actions">
                       <button onClick={() => handleEdit(task)}>✎</button>
-                      <button className="delete" onClick={() => handleDelete(task.id)}>
-                        🗑
-                      </button>
+                      <button className="delete" onClick={() => handleDelete(task.id)}>🗑</button>
                     </div>
                   </div>
                 );
               })
             )}
-
           </div>
+
         </div>
       </div>
 
+      {/* MODAL */}
       {showAddModal && (
         <div className="modal-bg">
           <div className="modal">

@@ -29,13 +29,13 @@ export default function MyTasks() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selectedCourse, setSelectedCourse] = useState("all"); 
+  const [selectedCourse, setSelectedCourse] = useState("all");
 
   const [form, setForm] = useState({
     title: "",
     description: "",
     dueDate: "",
-    priority: "Medium",
+    priority: "",
     courseId: "",
     courseName: ""
   });
@@ -46,7 +46,7 @@ export default function MyTasks() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("none");
 
-  // Load user, courses, tasks
+  // Load data
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -60,21 +60,15 @@ export default function MyTasks() {
         email: user.email
       });
 
-      // Courses
       const cq = query(
         collection(db, "courses"),
         where("members", "array-contains", user.uid)
       );
 
       onSnapshot(cq, (snap) => {
-        const list = snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data()
-        }));
-        setCourses(list);
+        setCourses(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       });
 
-      // My tasks
       const tq = query(
         collection(db, "tasks"),
         where("userId", "==", user.uid)
@@ -86,11 +80,7 @@ export default function MyTasks() {
           ...d.data()
         }));
 
-        list.sort((a, b) => {
-          const da = new Date(a.createdAt || 0);
-          const db = new Date(b.createdAt || 0);
-          return db - da;
-        });
+        list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
         setTasks(list);
         setLoading(false);
@@ -99,7 +89,8 @@ export default function MyTasks() {
 
     return () => unsub();
   }, []);
- 
+
+  // Filters
   let filteredTasks = tasks.filter((task) => {
     if (selectedCourse !== "all" && task.courseId !== selectedCourse) return false;
     if (statusFilter === "complete" && !task.completed) return false;
@@ -114,7 +105,7 @@ export default function MyTasks() {
     return 0;
   });
 
-  // Handlers
+  // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) return alert("Title is required!");
@@ -139,7 +130,7 @@ export default function MyTasks() {
         title: "",
         description: "",
         dueDate: "",
-        priority: "Medium",
+        priority: "",
         courseId: "",
         courseName: ""
       });
@@ -179,7 +170,6 @@ export default function MyTasks() {
 
   return (
     <div className="dashboard-container">
-      {/* Top Bar */}
       <div className="topbar">
         <div className="top-left">
           <button onClick={toggleSidebar}>☰</button>
@@ -191,15 +181,12 @@ export default function MyTasks() {
         <Sidebar isOpen={sidebarOpen} userInfo={userInfo} active="myTasks" />
 
         <div className="main">
-          { }
+          {/* Filters */}
           <div className="task-filters">
-
             <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
               <option value="all">All Courses</option>
               {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
 
@@ -248,10 +235,12 @@ export default function MyTasks() {
                 onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
               />
 
+              {/* PRIORITY Placeholder */}
               <select
                 value={form.priority}
                 onChange={(e) => setForm({ ...form, priority: e.target.value })}
               >
+                <option value="" disabled hidden>Priority</option>
                 {PRIORITIES.map((p) => (
                   <option key={p} value={p}>{p}</option>
                 ))}
@@ -270,9 +259,7 @@ export default function MyTasks() {
               >
                 <option value="">No Course</option>
                 {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
 
@@ -280,7 +267,7 @@ export default function MyTasks() {
             </form>
           </div>
 
-          {/* TASKS LIST */}
+          {/* TASK LIST */}
           <div className="tasks-list">
             {filteredTasks.length === 0 ? (
               <p style={{ textAlign: "center", color: "#93a0b4" }}>
@@ -314,7 +301,7 @@ export default function MyTasks() {
 
                     <div className="task-meta">
                       Due: {task.dueDate || "—"}
-                      <span className={`priority-chip priority-${task.priority.toLowerCase()}`}>
+                      <span className={`priority-chip priority-${task.priority?.toLowerCase()}`}>
                         {task.priority}
                       </span>
                     </div>
@@ -329,7 +316,6 @@ export default function MyTasks() {
               ))
             )}
           </div>
-
         </div>
       </div>
     </div>

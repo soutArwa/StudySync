@@ -1,4 +1,4 @@
-import React from "react";
+ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "../Components/Dashboard.css";
 
@@ -10,11 +10,9 @@ export default function Sidebar({ isOpen, userInfo, active }) {
 
   return (
     <aside className={`side ${isOpen ? "open" : "closed"}`}>
+      
       {/* User Info */}
       <div className="user">
-        <div className="avatar">
-          {displayName?.[0]?.toUpperCase() || "U"}
-        </div>
         <div>
           <div style={{ fontWeight: 800 }}>{displayName}</div>
           <div className="email">{email}</div>
