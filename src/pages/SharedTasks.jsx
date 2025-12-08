@@ -31,6 +31,8 @@ export default function SharedTasks() {
 
   const [courseMembers, setCourseMembers] = useState([]);
 
+  const [selectedCourse, setSelectedCourse] = useState("all"); // ⭐ NEW
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [newStudentEmail, setNewStudentEmail] = useState("");
 
@@ -45,7 +47,6 @@ export default function SharedTasks() {
 
   const [editingId, setEditingId] = useState(null);
 
-  // FILTER STATES (Like MyTasks)
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sortBy, setSortBy] = useState("none");
@@ -59,38 +60,32 @@ export default function SharedTasks() {
     if (!u) return navigate("/login");
 
     setUid(u.uid);
-    setUserInfo({
-      displayName: u.displayName || "User",
-      email: u.email
-    });
+    setUserInfo({ displayName: u.displayName || "User", email: u.email });
   }, []);
 
   // Load all users
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "users"), (snap) => {
-      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
-    });
-    return () => unsub();
-  }, []);
+  useEffect(() =>
+    onSnapshot(collection(db, "users"), (snap) =>
+      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })))
+    )
+  , []);
 
   // Load courses
   useEffect(() => {
     if (!uid) return;
 
-    const unsub = onSnapshot(
+    return onSnapshot(
       query(collection(db, "courses"), where("members", "array-contains", uid)),
       (snap) => {
         const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setCourses(list);
       }
     );
-
-    return () => unsub();
   }, [uid]);
 
   // Load tasks
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, "generalTasks"), (snap) => {
+    return onSnapshot(collection(db, "generalTasks"), (snap) => {
       const raw = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       const filtered = raw.filter((task) => {
@@ -100,36 +95,30 @@ export default function SharedTasks() {
         return inCourse || assigned || mine;
       });
 
-      filtered.sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-      );
-
+      filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setTasks(filtered);
       setLoading(false);
     });
-
-    return () => unsub();
   }, [courses, uid]);
 
-  // Update course members
+  // Update course members when selecting a course
   useEffect(() => {
     if (!form.courseId) return setCourseMembers([]);
     const c = courses.find((x) => x.id === form.courseId);
     setCourseMembers(c?.members || []);
   }, [form.courseId, courses]);
 
-  // Add student to course
+  // Add student
   const addStudentToCourse = async () => {
     if (!newStudentEmail.trim()) return alert("Enter an email!");
 
     const email = newStudentEmail.toLowerCase();
     const found = allUsers.find((u) => u.email.toLowerCase() === email);
-
     if (!found) return alert("User not found!");
 
-    const ref = doc(db, "courses", form.courseId);
-
-    await updateDoc(ref, { members: arrayUnion(found.uid) });
+    await updateDoc(doc(db, "courses", form.courseId), {
+      members: arrayUnion(found.uid)
+    });
 
     setForm((prev) => ({
       ...prev,
@@ -139,19 +128,17 @@ export default function SharedTasks() {
     setNewStudentEmail("");
     setShowAddModal(false);
   };
-
-  // Submit
+ 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!form.title.trim()) return alert("Title required!");
     if (!form.courseId) return alert("Select a course!");
     if (form.assignedTo.length === 0)
       return alert("Assign at least one student!");
 
     const course = courses.find((c) => c.id === form.courseId);
-
     const courseRef = doc(db, "courses", form.courseId);
+
     for (const id of form.assignedTo) {
       await updateDoc(courseRef, { members: arrayUnion(id) });
     }
@@ -184,11 +171,10 @@ export default function SharedTasks() {
     });
   };
 
-  const toggleComplete = async (task) => {
+  const toggleComplete = async (task) =>
     await updateDoc(doc(db, "generalTasks", task.id), {
       completed: !task.completed
     });
-  };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete?")) return;
@@ -207,26 +193,27 @@ export default function SharedTasks() {
     });
   };
 
-  // FILTER LOGIC (same as MyTasks)
-  const filteredTasks = tasks
-    .filter((task) => {
-      if (statusFilter === "complete" && !task.completed) return false;
-      if (statusFilter === "incomplete" && task.completed) return false;
-      if (priorityFilter !== "all" && task.priority !== priorityFilter)
-        return false;
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === "asc") return new Date(a.dueDate) - new Date(b.dueDate);
-      if (sortBy === "desc") return new Date(b.dueDate) - new Date(a.dueDate);
-      return 0;
-    });
+ 
+  let filteredTasks = tasks.filter((task) => {
+    if (selectedCourse !== "all" && task.courseId !== selectedCourse) return false;
+    if (statusFilter === "complete" && !task.completed) return false;
+    if (statusFilter === "incomplete" && task.completed) return false;
+    if (priorityFilter !== "all" && task.priority !== priorityFilter) return false;
+    return true;
+  });
+
+  filteredTasks.sort((a, b) => {
+    if (sortBy === "asc") return new Date(a.dueDate) - new Date(b.dueDate);
+    if (sortBy === "desc") return new Date(b.dueDate) - new Date(a.dueDate);
+    return 0;
+  });
 
   if (loading) return <h3>Loading...</h3>;
 
   return (
     <div className="dashboard-container">
-      
+
+      {/* Top Bar */}
       <div className="topbar">
         <div className="top-left">
           <button onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
@@ -235,25 +222,30 @@ export default function SharedTasks() {
       </div>
 
       <div className="content-wrapper">
+
         <Sidebar isOpen={sidebarOpen} userInfo={userInfo} active="sharedTasks" />
 
         <div className="main">
 
-          {/* FILTERS FROM MYTASKS */}
+          { }
           <div className="task-filters">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
+
+            <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
+              <option value="all">All Courses</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="all">All Status</option>
               <option value="complete">Completed</option>
               <option value="incomplete">Incomplete</option>
             </select>
 
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-            >
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
               <option value="all">All Priorities</option>
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>
@@ -262,10 +254,7 @@ export default function SharedTasks() {
               ))}
             </select>
 
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-            >
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
               <option value="none">Sort by Due Date</option>
               <option value="asc">Due Date ↑</option>
               <option value="desc">Due Date ↓</option>
@@ -331,7 +320,6 @@ export default function SharedTasks() {
                 ))}
               </select>
 
-              {/* Students */}
               {form.courseId && (
                 <div className="assign-box">
                   <b>Assign to Students:</b>
@@ -372,65 +360,72 @@ export default function SharedTasks() {
             </form>
           </div>
 
-          {/* TASKS LIST */}
+          { }
           <div className="tasks-list">
-            {filteredTasks.map((task) => {
-              const assignedNames = task.assignedTo
-                ?.map((id) => {
-                  const u = allUsers.find((x) => x.uid === id);
-                  return u ? getUserName(u) : "Unknown";
-                })
-                .join(", ");
 
-              return (
-                <div
-                  key={task.id}
-                  className={`task-card ${task.completed ? "completed" : ""}`}
-                >
+            {filteredTasks.length === 0 ? (
+              <p style={{ textAlign: "center", color: "#93a0b4" }}>
+                No tasks found.
+              </p>
+            ) : (
+              filteredTasks.map((task) => {
+                const assignedNames = task.assignedTo
+                  ?.map((id) => {
+                    const u = allUsers.find((x) => x.uid === id);
+                    return u ? getUserName(u) : "Unknown";
+                  })
+                  .join(", ");
+
+                return (
                   <div
-                    className={`task-check ${task.completed ? "completed" : ""}`}
-                    onClick={() => toggleComplete(task)}
-                  />
+                    key={task.id}
+                    className={`task-card ${task.completed ? "completed" : ""}`}
+                  >
+                    <div
+                      className={`task-check ${task.completed ? "completed" : ""}`}
+                      onClick={() => toggleComplete(task)}
+                    />
 
-                  <div className="task-info">
-                    <div className="task-title">{task.title}</div>
+                    <div className="task-info">
+                      <div className="task-title">{task.title}</div>
 
-                    {task.description && (
-                      <div className="task-description">{task.description}</div>
-                    )}
+                      {task.description && (
+                        <div className="task-description">{task.description}</div>
+                      )}
 
-                    <div className="task-meta">
-                      Due: {task.dueDate || "—"}
-                      <span
-                        className={`priority-chip priority-${task.priority.toLowerCase()}`}
-                      >
-                        {task.priority}
-                      </span>
+                      <div className="task-meta">
+                        Due: {task.dueDate || "—"}
+                        <span
+                          className={`priority-chip priority-${task.priority.toLowerCase()}`}
+                        >
+                          {task.priority}
+                        </span>
+                      </div>
+
+                      <div className="task-meta">
+                        Course: <strong>{task.courseName}</strong>
+                      </div>
+
+                      <div className="task-meta">
+                        👥 Assigned: {assignedNames}
+                      </div>
                     </div>
 
-                    <div className="task-meta">
-                      Course: <strong>{task.courseName}</strong>
-                    </div>
-
-                    <div className="task-meta">
-                      👥 Assigned: {assignedNames}
+                    <div className="task-actions">
+                      <button onClick={() => handleEdit(task)}>✎</button>
+                      <button className="delete" onClick={() => handleDelete(task.id)}>
+                        🗑
+                      </button>
                     </div>
                   </div>
+                );
+              })
+            )}
 
-                  <div className="task-actions">
-                    <button onClick={() => handleEdit(task)}>✎</button>
-                    <button className="delete" onClick={() => handleDelete(task.id)}>
-                      🗑
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
 
-      {/* ADD STUDENT MODAL */}
       {showAddModal && (
         <div className="modal-bg">
           <div className="modal">
@@ -453,6 +448,7 @@ export default function SharedTasks() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
