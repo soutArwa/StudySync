@@ -84,7 +84,7 @@ Functionalities include:
 
 ### **D. Frontend UI**
 
-* Developed using **React (Vite)**
+* Developed using **React (Vite) , CSS**
 * Fully responsive single-page application (SPA)
 * Includes:
 
@@ -98,7 +98,7 @@ Functionalities include:
 
 ## **4. Technology Stack**
 
-* **Frontend:** React (Vite)
+* **Frontend:** React (Vite) , CSS
 * **Authentication:** Firebase Authentication
 * **Database:** Firebase Firestore
 * **Hosting:** Firebase Hosting
@@ -143,26 +143,11 @@ http://localhost:5173/
 
 ---
 
-## **6. Deployment Instructions (Firebase Hosting)**
-
-### **Build the Project**
-
-```bash
-npm run build
-```
-
-### **Deploy to Firebase**
-
-```bash
-firebase deploy
-```
-
-The hosting output is served from the `dist` directory.
 
 
 ---
 
-## **7. Live Demo URL**
+## **6. Live Demo URL**
 
 The deployed version of the project is available at:
 **[https://studysync-database.web.app](https://studysync-database.web.app)**
